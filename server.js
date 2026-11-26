@@ -15,7 +15,7 @@ const DB_FILE = path.join(DATA_DIR, 'db.json');
 const START_BAL = 10000;
 const CHIPS = [10, 50, 100, 500, 1000];
 const MAX_BET_PER_ROUND = 1000000;
-const T = { bet: 20000, lock: 1500, roll: 4500, show: 5000 };
+const T = { bet: 20000, lock: 1500, roll: 7500, show: 5000 };
 const SYM_NAMES = ['大象', '兔子', '红鲤鱼', '虾', '孔雀', '马'];
 const ROBOTS = ['阿强', '小美', 'LuckyKing', '金龙', 'Somchai', '财神到', '海风', '老王', 'Noy', '阿杰', '发财哥', 'Mali', '小鱼儿',
   'Bounmy', '星辰', 'Kham', '大头', 'Lina', '阿福', 'Tony88', '旺旺', 'Vong', '锦鲤附体', 'Ploy', '一路发', 'Sengdao', '豹子头', 'Ken', '好运来', 'Nana'];

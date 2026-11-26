@@ -20,7 +20,7 @@ const hhmm = (t) => { const d = new Date(t); return `${String(d.getHours()).padS
 const retrigger = (el, c) => { el.classList.remove(c); void el.offsetWidth; el.classList.add(c); };
 
 const S = { round: 0, phase: 'idle', endAt: 0, offset: 0, balance: 0, chip: 100, me: '', pending: {}, mine: {},
-  lastBets: JSON.parse(localStorage.getItem('yxx_last') || '{}'), pools: {}, history: [], cd: false, T: null, phaseStart: 0 };
+  lastBets: JSON.parse(localStorage.getItem('yxx_last') || '{}'), pools: {}, history: [], cd: false, T: null, phaseStart: 0, feedLog: [] };
 let token = localStorage.getItem('yxx_token') || '';
 let ws, sending = false, entered = false, stage = null, stageP = null;
 
@@ -157,7 +157,8 @@ function pushFeed(sym, name, amt, cls) {
   const li = document.createElement('li'); if (cls) li.className = cls;
   li.innerHTML = `<img src="${IMG(sym)}" alt=""><span class="n">${esc(name)}</span><span class="a">${kfmt(amt)}</span>`;
   const feed = $('#feed'); feed.prepend(li);
-  while (feed.children.length > 9) feed.lastChild.remove();
+  while (feed.children.length > 14) feed.lastChild.remove();
+  S.feedLog.unshift({ sym, name, amt, cls, t: Date.now() }); if (S.feedLog.length > 60) S.feedLog.pop();
 }
 let toastT;
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 1600); }
@@ -210,6 +211,7 @@ $('#sheetX').addEventListener('click', () => { $('#sheet').hidden = true; });
 $('#sheet').addEventListener('click', (e) => { if (e.target.id === 'sheet') $('#sheet').hidden = true; });
 const showHist = () => sheet(`<h3>开奖历史</h3>${S.history.slice(0, 30).map((r, k) => `<div class="hrow"><span style="width:56px">#${S.round - k - (S.phase === 'bet' || S.phase === 'lock' ? 1 : 0)}</span>${histImgs(r)}<span>${r.map((s) => SYMS[s].short).join(' · ')}</span></div>`).join('') || '<p>暂无记录</p>'}`);
 $('#navHist').addEventListener('click', showHist);
+$('#ticker').addEventListener('click', () => sheet(`<h3>最新投注</h3>${S.feedLog.map((f) => `<div class="hrow"><img src="${IMG(f.sym)}" alt=""><b style="color:#e8f6ff;min-width:72px">${esc(f.name)}</b><span style="color:#ffe3a1;font-family:Orbitron,sans-serif">${fmt(f.amt)}</span><span style="margin-left:auto">${hhmm(f.t)}</span></div>`).join('') || '<p>暂无记录</p>'}`));
 $('#historyBar').addEventListener('click', showHist);
 $('#navFair').addEventListener('click', () => sheet(`<h3>规则说明</h3><ul>
   <li>每回合 ${S.T ? Math.round(S.T.bet / 1000) : 15} 秒下注，服务器摇出 3 颗骰子，每颗骰子六面分别是 6 种图案。</li>
@@ -270,9 +272,11 @@ function enterLock() {
 }
 function enterRoll(result, left) {
   setStatus('开奖中');
-  if (left < 1500) { withStage((s) => s.reveal(result)); return; }
-  SND.phase('roll'); SND.roll();
-  withStage((s) => s.roll(result));
+  const total = (S.T && S.T.roll) || 7500;
+  if (left < 2300) { withStage((s) => s.reveal(result)); return; }
+  const elapsed = Math.max(0, total - left) / 1000;
+  SND.phase('roll'); if (elapsed < 1) SND.roll();
+  withStage((s) => s.roll(result, elapsed));
 }
 function enterShow(m) {
   SND.phase('show'); SND.reveal();

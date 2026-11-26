@@ -284,3 +284,45 @@ input{-webkit-user-select:text;user-select:text;font-size:16px!important}
 .ped.dim{transition:opacity .4s;opacity:.55;filter:none}
 .ped.dim .inner{filter:grayscale(.8) brightness(.5)}
 @media (hover:hover){.ped:hover{filter:none}}
+
+/* ===== v5：整个上半屏就是骰子舞台（全宽），投注记录改为舞台下方的滚动条 ===== */
+.stage{flex:1 1 auto;height:auto;min-height:250px;max-height:none;border-radius:14px;
+  background:radial-gradient(80% 70% at 50% 55%,rgba(20,80,120,.35),transparent 75%),linear-gradient(180deg,#050d18,#02060c)}
+.stage::before{display:none}
+.stage3d{position:absolute;inset:0}
+.stage3d canvas{width:100%!important;height:100%!important}
+.cd{left:8px;top:8px;bottom:auto;width:60px;height:60px;z-index:4}
+.cd-num{font-size:12px;padding-top:11px;letter-spacing:0}
+.cd.gold .cd-num{font-size:11px}
+.cd-clk{top:13px;width:12px;height:12px;margin-left:-6px}
+.cd-ring circle{stroke-width:6}
+.status{position:absolute;z-index:5;top:12px;left:72px;right:72px;width:auto;height:auto;font-size:15px;letter-spacing:.28em;pointer-events:none}
+.status i{display:none}
+.result-pop{left:0;right:0;width:auto;top:auto;bottom:36px;font-size:30px;padding:3px 0}
+.history{position:absolute;z-index:5;left:8px;right:8px;bottom:6px;height:26px;padding:0 6px;border-radius:8px;
+  background:linear-gradient(90deg,rgba(2,10,20,.78),rgba(2,10,20,.55));border:1px solid rgba(79,233,255,.2)}
+.h-item img{width:17px;height:17px}.h-item{padding:1px 2px}
+.ticker{flex:none;display:flex;align-items:center;gap:8px;height:30px;padding:0 8px;border-radius:9px;background:var(--glass);border:1px solid rgba(79,233,255,.3);cursor:pointer;overflow:hidden}
+.tk-lbl{display:flex;align-items:center;gap:6px;white-space:nowrap;font-size:11.5px;font-weight:700;color:var(--cy)}
+.tk-lbl .wave{width:22px}
+.tk-more{color:var(--mut);font-size:16px;line-height:1}
+.ticker #feed{flex:1;min-width:0;flex-direction:row;gap:6px;padding:0;overflow:hidden;align-items:center;-webkit-mask-image:linear-gradient(90deg,#000 82%,transparent);mask-image:linear-gradient(90deg,#000 82%,transparent)}
+.ticker #feed li{flex:none;display:flex;align-items:center;gap:4px;padding:2px 8px 2px 4px;border-radius:12px;animation:tkin .32s cubic-bezier(.2,.8,.2,1)}
+.ticker #feed li img{width:18px;height:18px}
+.ticker #feed li .n{max-width:64px;font-size:11px}.ticker #feed li .a{font-size:11px}
+@keyframes tkin{from{opacity:0;transform:translateX(-26px)}}
+.ped{height:clamp(100px,12.6vh,140px)}
+.fb-die{width:84px;height:84px}.fallback{padding-right:0}
+@media (min-width:1000px){
+  .history{position:absolute;grid-column:auto;grid-row:auto}
+  .ticker{grid-column:2;grid-row:2}
+  .stage{grid-column:1;grid-row:2/7}
+}
+
+.ped{height:clamp(94px,11.4vh,132px)}
+.ped .fig{height:62%}
+.chip{width:48px;height:48px;font-size:12px}
+.chips{padding:2px 6px}
+.act{height:42px}
+.bnav{height:38px}
+.lobby .wrap{gap:5px}

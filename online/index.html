@@ -73,21 +73,18 @@
     <section class="stage" id="stage">
       <div class="stage3d" id="stage3d"></div>
       <div class="fallback" id="fallback" hidden><div class="fb-die"></div><div class="fb-die"></div><div class="fb-die"></div></div>
-      <aside class="feed-panel">
-        <div class="fp-head"><span>最新投注</span><i class="wave"></i></div>
-        <ul id="feed"></ul>
-      </aside>
       <div class="cd">
         <svg viewBox="0 0 120 120" class="cd-ring"><circle cx="60" cy="60" r="52" class="trk"/><circle cx="60" cy="60" r="52" class="bar" id="cdBar"/></svg>
         <svg class="cd-clk" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 3h6M12 3v2"/></svg>
         <div class="cd-num" id="cdNum">00:20</div>
       </div>
       <div class="status"><i></i><span id="status">请下注</span><i></i></div>
+      <div class="history" id="historyBar"><span class="h-lbl">走势</span><div class="h-list" id="history"></div></div>
       <div class="banner" id="banner"></div>
       <div class="result-pop" id="resultPop"></div>
     </section>
 
-    <div class="history" id="historyBar"><span class="h-lbl">开奖走势</span><div class="h-list" id="history"></div></div>
+    <div class="ticker" id="ticker"><span class="tk-lbl"><i class="wave"></i>最新投注</span><ul id="feed"></ul><span class="tk-more">›</span></div>
 
     <section class="board" id="board"></section>
 
