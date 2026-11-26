@@ -1,122 +1,128 @@
-/* 全部声音由 Web Audio API 实时合成，无任何版权音频 */
+/* 音频引擎：预加载 mp3（原创合成音乐/音效 + Kenney CC0 采样），Web Audio 混音。
+ * 资源与版权见 LICENSES/AUDIO-CREDITS.md */
 window.Sound = (function () {
-  let ctx, master, music, sfx, noiseBuf, timer;
+  const BASE = 'audio/';
+  const NAMES = ['bgm', 'gong', 'riser', 'tick', 'drumroll', 'impact', 'thump', 'reveal', 'bigwin', 'smallwin', 'lose', 'ding', 'start'];
+  const KEN = ['diceThrow1', 'diceThrow2', 'diceThrow3', 'dieShuffle1', 'dieShuffle2', 'dieShuffle3', 'dieThrow1', 'dieThrow2', 'dieThrow3', 'dieGrab1',
+    'chipLay1', 'chipLay2', 'chipLay3', 'chipsCollide1', 'chipsCollide2', 'chipsHandle1', 'chipsHandle2', 'chipsStack1', 'chipsStack3', 'chipsStack5',
+    'handleCoins', 'handleCoins2', 'metalClick', 'click1', 'click3', 'switch2'];
+  const URLS = {}; NAMES.forEach((n) => (URLS[n] = BASE + n + '.mp3')); KEN.forEach((n) => (URLS[n] = BASE + 'kenney/' + n + '.mp3'));
+
   let muted = localStorage.getItem('yxx_mute') === '1';
-  let intense = false, step = 0, nextT = 0;
-  const BPM = 112;
-  const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
+  let ctx, master, musicG, duckG, sfxG, bgmSrc, ready = false, started = false;
+  const bufs = {}, raw = {};
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+  // 页面一加载就开始下载（不需要用户手势）
+  const fetched = Promise.all(Object.keys(URLS).map((k) =>
+    fetch(URLS[k]).then((r) => (r.ok ? r.arrayBuffer() : null)).then((b) => { raw[k] = b; }).catch(() => {})));
+
+  const decode = (ab) => new Promise((res) => { try { const p = ctx.decodeAudioData(ab.slice(0), res, () => res(null)); if (p && p.catch) p.catch(() => res(null)); } catch (_) { res(null); } });
 
   function init() {
     if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return;
-    ctx = new AC();
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+    ctx = new AC({ latencyHint: 'interactive' });
     const comp = ctx.createDynamicsCompressor();
-    comp.threshold.value = -14; comp.ratio.value = 4;
-    master = ctx.createGain(); master.gain.value = muted ? 0 : 0.9;
-    master.connect(comp); comp.connect(ctx.destination);
-    music = ctx.createGain(); music.gain.value = 0.2; music.connect(master);
-    sfx = ctx.createGain(); sfx.gain.value = 0.85; sfx.connect(master);
-    noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
-    const d = noiseBuf.getChannelData(0);
-    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-    nextT = ctx.currentTime + 0.1;
-    timer = setInterval(schedule, 40);
+    comp.threshold.value = -12; comp.knee.value = 10; comp.ratio.value = 3; comp.attack.value = 0.005; comp.release.value = 0.2;
+    master = ctx.createGain(); master.gain.value = muted ? 0 : 0.9; master.connect(comp); comp.connect(ctx.destination);
+    duckG = ctx.createGain(); duckG.connect(master);
+    musicG = ctx.createGain(); musicG.gain.value = 0.3; musicG.connect(duckG);
+    sfxG = ctx.createGain(); sfxG.gain.value = 0.85; sfxG.connect(master);
+    document.addEventListener('visibilitychange', () => { if (!ctx) return; if (document.hidden) ctx.suspend(); else ctx.resume(); });
+    fetched.then(async () => {
+      await Promise.all(Object.keys(raw).map(async (k) => { if (raw[k]) bufs[k] = await decode(raw[k]); }));
+      ready = true; startBgm();
+    });
   }
 
-  function tone(freq, t, dur, type = 'sine', vol = 0.3, dest = sfx, slideTo) {
-    const o = ctx.createOscillator(), g = ctx.createGain();
-    o.type = type; o.frequency.setValueAtTime(freq, t);
-    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.linearRampToValueAtTime(vol, t + 0.006);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g); g.connect(dest); o.start(t); o.stop(t + dur + 0.05);
-  }
-  function noise(t, dur, vol, freq, q = 1, dest = sfx, type = 'bandpass', sweepTo) {
-    const s = ctx.createBufferSource(); s.buffer = noiseBuf;
-    const f = ctx.createBiquadFilter(); f.type = type; f.frequency.setValueAtTime(freq, t); f.Q.value = q;
-    if (sweepTo) f.frequency.exponentialRampToValueAtTime(sweepTo, t + dur);
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    s.connect(f); f.connect(g); g.connect(dest); s.start(t, Math.random()); s.stop(t + dur + 0.02);
+  function startBgm() {
+    if (!ready || started || !bufs.bgm) return; started = true;
+    bgmSrc = ctx.createBufferSource(); bgmSrc.buffer = bufs.bgm; bgmSrc.loop = true;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, ctx.currentTime); g.gain.linearRampToValueAtTime(1, ctx.currentTime + 2);
+    bgmSrc.connect(g); g.connect(musicG); bgmSrc.start();
   }
 
-  // ----- 背景音乐：五声音阶循环 -----
-  const roots = [50, 46, 48, 45]; // D  Bb  C  A
-  const mel = [
-    [74, -1, 77, 79, 81, -1, 79, 77],
-    [74, 77, -1, 74, 72, -1, 70, -1],
-    [72, -1, 76, 79, 76, -1, 74, 72],
-    [69, -1, 72, 74, 76, 74, -1, -1],
-  ];
-  function schedule() {
-    if (!ctx) return;
-    const sd = 60 / BPM / 4;
-    while (nextT < ctx.currentTime + 0.2) {
-      playStep(step, nextT);
-      nextT += intense ? sd * 0.75 : sd;
-      step = (step + 1) % 64;
-    }
+  function play(name, o = {}) {
+    if (!ctx || !bufs[name]) return null;
+    const s = ctx.createBufferSource(); s.buffer = bufs[name]; s.playbackRate.value = o.rate || 1;
+    const g = ctx.createGain(); g.gain.value = o.v == null ? 1 : o.v;
+    let node = g;
+    if (o.pan) { const p = ctx.createStereoPanner(); p.pan.value = o.pan; g.connect(p); node = p; }
+    s.connect(g); node.connect(o.bus || sfxG);
+    s.start(ctx.currentTime + (o.at || 0), o.offset || 0);
+    return s;
   }
-  function playStep(st, t) {
-    const bar = Math.floor(st / 16), s = st % 16, root = roots[bar];
-    if (s % 4 === 0 && (intense || s === 0 || s === 8)) tone(120, t, 0.2, 'sine', 0.55, music, 42);
-    if (s === 0 || s === 6 || s === 10) tone(mtof(root), t, 0.32, 'triangle', 0.4, music);
-    if (s === 4 || s === 12) noise(t, 0.12, 0.18, 1800, 0.8, music);
-    if (s % 4 === 2 || (intense && s % 2 === 1)) noise(t, 0.04, 0.12, 8000, 1, music, 'highpass');
-    if (s % 2 === 0) {
-      const n = mel[bar][s / 2];
-      if (n > 0) { tone(mtof(n), t, 0.28, 'triangle', 0.13, music); tone(mtof(n + 12), t, 0.12, 'sine', 0.04, music); }
-    }
-    if (s === 0) { [0, 7, 12].forEach((iv) => tone(mtof(root + 12 + iv), t, 1.8, 'sine', 0.035, music)); }
-  }
+  function duck(level, tc = 0.25) { if (duckG) duckG.gain.setTargetAtTime(level, ctx.currentTime, tc); }
 
   const api = {
     unlock: init,
     get muted() { return muted; },
     toggle() {
-      muted = !muted; localStorage.setItem('yxx_mute', muted ? '1' : '0');
-      init();
+      muted = !muted; localStorage.setItem('yxx_mute', muted ? '1' : '0'); init();
       if (master) master.gain.setTargetAtTime(muted ? 0 : 0.9, ctx.currentTime, 0.05);
+      if (!muted) play('switch2', { v: 0.8 });
       return muted;
     },
-    setIntense(v) { intense = v; },
-    chip() { if (!ctx) return; const t = ctx.currentTime; tone(1900, t, 0.06, 'sine', 0.22); tone(2700, t + 0.02, 0.05, 'sine', 0.12); noise(t, 0.03, 0.1, 5000, 2); },
-    confirm() { if (!ctx) return; const t = ctx.currentTime; tone(880, t, 0.12, 'triangle', 0.25); tone(1320, t + 0.07, 0.18, 'triangle', 0.22); },
-    tick(hi) { if (!ctx) return; tone(hi ? 1400 : 1000, ctx.currentTime, 0.07, 'square', 0.07); },
+    setIntense() {}, impact() {},
+    stats() { return { ctx: ctx && ctx.state, loaded: Object.keys(bufs).filter((k) => bufs[k]).length, total: Object.keys(URLS).length, ready, bgm: started }; },
+    phase(p) { if (!ctx) return; duck({ bet: 1, lock: 0.3, roll: 0.18, show: 0.3 }[p] || 1, p === 'bet' ? 1.2 : 0.15); },
+    roundStart() { play('start', { v: 0.7 }); },
+    chip() { play(pick(['chipLay1', 'chipLay2', 'chipLay3']), { v: 0.9, rate: rnd(0.95, 1.1) }); },
+    confirm() { play(pick(['chipsStack1', 'chipsStack3', 'chipsStack5']), { v: 0.9 }); play('ding', { v: 0.55, at: 0.06 }); },
+    clear() { play('chipsHandle2', { v: 0.7, rate: 1.1 }); },
+    repeat() { play(pick(['chipsCollide1', 'chipsCollide2']), { v: 0.85 }); },
+    tap() { play('click1', { v: 0.8, rate: rnd(0.95, 1.05) }); },
+    error() { play('metalClick', { v: 0.5, rate: 0.7 }); },
+    // 最后 3 秒：上升音效 + 越来越快的滴答 + BGM 压低
+    countdown(leftSec) {
+      if (!ctx) return;
+      const el = Math.max(0, 3 - leftSec);
+      duck(0.55, 0.3);
+      play('riser', { v: 0.85, offset: el });
+      [0, 0.5, 1, 1.5, 2, 2.25, 2.5, 2.65, 2.8, 2.9].forEach((t) => {
+        if (t >= el - 0.02) play('tick', { v: 0.55 + t / 3 * 0.45, rate: 0.9 + t / 3 * 0.9, at: Math.max(0, t - el) });
+      });
+    },
+    // 封盘：锣 + 骰盅里摇骰子
     lock() {
-      if (!ctx) return; const t = ctx.currentTime;
-      noise(t, 0.6, 0.35, 400, 1, sfx, 'bandpass', 4000);
-      tone(300, t, 0.35, 'sawtooth', 0.08, sfx, 900);
-      tone(600, t + 0.3, 0.25, 'square', 0.08);
+      if (!ctx) return;
+      duck(0.3, 0.1);
+      play('gong', { v: 1 });
+      play('dieGrab1', { v: 0.9, at: 0.05 });
+      play(pick(['dieShuffle1', 'dieShuffle2', 'dieShuffle3']), { v: 1, at: 0.2, rate: 1.0 });
+      play(pick(['dieShuffle1', 'dieShuffle2', 'dieShuffle3']), { v: 0.6, at: 0.6, rate: 1.18, pan: 0.3 });
     },
-    roll(dur) {
-      if (!ctx) return; const t0 = ctx.currentTime;
-      // 骰子在碗里碰撞的咔嗒声，越来越稀
-      let t = 0;
-      while (t < dur) {
-        const p = t / dur;
-        noise(t0 + t, 0.035, 0.45 * (1 - p * 0.5), 2200 + Math.random() * 3000, 5);
-        tone(500 + Math.random() * 900, t0 + t, 0.045, 'square', 0.035);
-        t += 0.025 + Math.random() * 0.05 + p * p * 0.12;
-      }
-      noise(t0, dur, 0.25, 300, 0.7, sfx, 'bandpass', 2500); // 呼啸
-      tone(180, t0, dur, 'sawtooth', 0.05, sfx, 720);          // 紧张感上升音
+    // 开奖：鼓点渐强 + 骰子翻滚碰撞 + 三颗骰子依次落地 + 重击
+    roll() {
+      if (!ctx) return;
+      duck(0.18, 0.1);
+      play('drumroll', { v: 0.9 });
+      play('diceThrow2', { v: 0.9, at: 0.05 });
+      [[0.9, 'diceThrow1', 0.7, -0.4], [1.5, 'dieThrow2', 0.8, 0.4], [1.95, 'diceThrow3', 0.8, -0.2], [2.3, 'dieThrow3', 0.9, 0.2]]
+        .forEach(([t, n, v, pan]) => play(n, { v, at: t, pan, rate: rnd(0.95, 1.1) }));
+      [[2.5, -0.5, 'dieThrow1'], [2.6, 0, 'dieThrow2'], [2.68, 0.5, 'diceThrow1']].forEach(([t, pan, n]) => {
+        play('thump', { v: 0.9, at: t, pan }); play(n, { v: 0.9, at: t, pan, rate: rnd(0.92, 1.08) });
+      });
+      play('impact', { v: 1, at: 2.6 });
     },
-    impact() {
-      if (!ctx) return; const t = ctx.currentTime;
-      tone(150, t, 0.45, 'sine', 0.8, sfx, 38);
-      noise(t, 0.25, 0.6, 500, 0.8, sfx, 'lowpass');
-      noise(t, 0.9, 0.18, 7000, 0.5, sfx, 'highpass');
-    },
+    reveal() { if (!ctx) return; duck(0.3, 0.1); play('reveal', { v: 0.95 }); },
     win(big) {
-      if (!ctx) return; const t = ctx.currentTime;
-      const notes = big ? [72, 76, 79, 84, 88, 91, 96] : [72, 76, 79, 84, 88];
-      notes.forEach((n, i) => { tone(mtof(n), t + i * 0.08, 0.35, 'triangle', 0.22); tone(mtof(n + 12), t + i * 0.08, 0.2, 'sine', 0.06); });
-      for (let i = 0; i < 14; i++) tone(2500 + Math.random() * 2500, t + 0.3 + i * 0.05, 0.08, 'sine', 0.07);
+      if (!ctx) return;
+      if (big) {
+        play('bigwin', { v: 1, at: 0.6 });
+        // 金币雨
+        for (let i = 0; i < 34; i++) {
+          const t = 1.2 + Math.pow(Math.random(), 0.8) * 3.6;
+          play(pick(['handleCoins', 'handleCoins2', 'chipsCollide1', 'chipsCollide2', 'chipsHandle1']), { v: rnd(0.35, 0.75), at: t, rate: rnd(0.9, 1.45), pan: rnd(-0.8, 0.8) });
+        }
+      } else {
+        play('smallwin', { v: 1, at: 0.5 });
+        for (let i = 0; i < 6; i++) play(pick(['handleCoins2', 'chipsCollide1', 'chipsCollide2']), { v: rnd(0.4, 0.7), at: 0.9 + i * 0.12, rate: rnd(1, 1.4), pan: rnd(-0.5, 0.5) });
+      }
     },
-    lose() { if (!ctx) return; const t = ctx.currentTime; tone(392, t, 0.25, 'triangle', 0.15); tone(330, t + 0.18, 0.4, 'triangle', 0.13); },
+    lose() { play('lose', { v: 0.85, at: 0.6 }); },
   };
   return api;
 })();

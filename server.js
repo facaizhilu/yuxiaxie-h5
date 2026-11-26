@@ -121,6 +121,7 @@ app.get('/', sendFile('online/index.html'));
 app.get('/online.js', sendFile('online/online.js'));
 app.get('/online.css', sendFile('online/online.css'));
 ['style.css', 'symbols.js', 'audio.js'].forEach((f) => app.get('/' + f, sendFile(f)));
+app.use('/audio', express.static(path.join(__dirname, 'audio'), { maxAge: '7d', index: false }));
 
 const server = http.createServer(app);
 

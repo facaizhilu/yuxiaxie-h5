@@ -25,3 +25,6 @@
 
 仓库根目录有 `render.yaml`。在 Render 控制台 New → Blueprint，选择本仓库，按提示填写 `TEST_PASS` 即可，推送到 main 会自动部署。
 免费版磁盘是临时的：重新部署或休眠重启后注册的账号与余额会重置，test01 会按环境变量自动重建为 1,000,000。免费实例闲置约 15 分钟会休眠，首次打开需等待约 30-60 秒。
+
+## 音频
+BGM 与大部分特效由 `tools/render-audio.html` 用代码合成（CC0），骰子/筹码/金币采样来自 Kenney CC0 素材包，全部预加载（约 1 MB）。详见 `LICENSES/AUDIO-CREDITS.md`。

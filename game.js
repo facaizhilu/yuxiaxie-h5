@@ -168,7 +168,7 @@
     const b = e.target.closest('.chip'); if (!b) return;
     S.chip = +b.dataset.v;
     document.querySelectorAll('.chip').forEach((c) => c.classList.toggle('sel', c === b));
-    Sound.chip();
+    Sound.tap();
   });
   board.addEventListener('click', (e) => {
     const t = e.target.closest('.tile'); if (!t) return;
@@ -181,14 +181,14 @@
   });
   $('#btnClear').addEventListener('click', () => {
     if (!sum(S.pending)) return toast('没有待确认的下注');
-    S.pending = {}; renderAll(); Sound.chip();
+    S.pending = {}; renderAll(); Sound.clear();
   });
   $('#btnRepeat').addEventListener('click', () => {
     if (S.phase !== 'bet') return toast('已封盘，请等待下一回合');
     if (!sum(S.lastBets)) return toast('上一回合没有下注');
     if (sum(S.lastBets) + sum(S.pending) > S.balance) return toast('余额不足');
     for (const k in S.lastBets) S.pending[k] = (S.pending[k] || 0) + S.lastBets[k];
-    renderAll(); Sound.chip();
+    renderAll(); Sound.repeat();
   });
   $('#btnOk').addEventListener('click', () => {
     if (S.phase !== 'bet') return toast('已封盘，请等待下一回合');
@@ -241,7 +241,7 @@
     if (S.balance < 10) { S.balance = START_BAL; toast('演示币已补充 10,000'); }
     renderAll();
     setPhase('bet', T.bet);
-    Sound.setIntense(false);
+    Sound.phase('bet'); Sound.roundStart(); S.cd = false;
     // 开局时先来一波下注
     for (let k = 0; k < 4 + rnd(4); k++) setTimeout(robotBet, k * 120);
     clearTimeout(robotT); robotT = setTimeout(robotBet, 600);
@@ -253,7 +253,7 @@
     setPhase('lock', T.lock);
     $('#stageTitle').textContent = '停止下注';
     retrigger($('#banner'), 'go'); $('#banner').textContent = '停止下注';
-    Sound.lock(); Sound.setIntense(true);
+    Sound.phase('lock'); Sound.lock();
     S.dice.forEach((d) => { d.wrap.classList.remove('idle'); d.wrap.classList.add('jitter'); });
     const sr = stage.getBoundingClientRect();
     sparks(sr.width / 2, sr.height * 0.6, 30, 4);
@@ -265,7 +265,7 @@
     stage.classList.add('rolling');
     const result = [rnd(6), rnd(6), rnd(6)];
     S.result = result;
-    Sound.roll(2.7);
+    Sound.phase('roll'); Sound.roll();
     S.dice.forEach((d, i) => {
       d.wrap.classList.remove('jitter'); void d.wrap.offsetWidth; d.wrap.classList.add('hop');
       setDie(i, result[i]);
@@ -274,7 +274,6 @@
     // 空中碰撞的火花
     [500, 1100, 1700].forEach((ms) => setTimeout(() => sparks(sr.width * (0.3 + Math.random() * 0.4), sr.height * 0.5, 14, 4), ms));
     setTimeout(() => {
-      Sound.impact();
       retrigger(stage, 'shake'); retrigger($('#ring'), 'go'); retrigger($('#flash'), 'go');
       S.dice.forEach((d) => { const r = d.wrap.getBoundingClientRect(); sparks(r.left - sr.left + r.width / 2, r.top - sr.top + r.height, 26, 7); });
     }, 2600);
@@ -282,7 +281,7 @@
 
   function reveal() {
     setPhase('show', T.show);
-    Sound.setIntense(false);
+    Sound.phase('show'); Sound.reveal();
     stage.classList.remove('rolling'); stage.classList.add('reveal');
     const r = S.result, cnt = [0, 0, 0, 0, 0, 0];
     r.forEach((s) => cnt[s]++);
@@ -300,7 +299,7 @@
     if (win > 0) {
       S.balance += win; renderBalance(true);
       pop.className = 'result-pop win'; pop.innerHTML = `+${fmt(win)}<small>${names}</small>`;
-      Sound.win(win >= bet * 2);
+      Sound.win(win - bet >= bet * 2 || win >= 10000);
       const sr = stage.getBoundingClientRect();
       for (let k = 0; k < 4; k++) setTimeout(() => sparks(sr.width * (0.2 + Math.random() * 0.6), sr.height * 0.4, 40, 8), k * 250);
       pushFeed(`🎉 <b>我</b> 赢得 <b>${fmt(win)}</b>`, 'win me');
@@ -327,7 +326,7 @@
     $('#stageTimer').textContent = tt; $('#topTimer').textContent = tt;
     const urgent = S.phase === 'bet' && left <= 3000;
     $('#stageTimer').classList.toggle('urgent', urgent);
-    if (urgent) { const s = Math.ceil(left / 1000); if (s !== S.lastTick && s > 0) { S.lastTick = s; Sound.tick(s === 1); } }
+    if (urgent && !S.cd && left > 0) { S.cd = true; Sound.countdown(left / 1000); }
     if (left > 0) return;
     if (S.phase === 'bet') lock();
     else if (S.phase === 'lock') roll();

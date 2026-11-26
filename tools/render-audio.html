@@ -1,0 +1,244 @@
+<!doctype html><meta charset="utf-8"><title>render</title>
+<script>
+/* 离线合成全部原创音频（BGM + 音效），由 tools/render-audio.js 驱动，输出 WAV 再用 ffmpeg 压成 mp3。
+ * 全部由代码生成，没有采样，没有版权问题（CC0）。 */
+const SR = 44100;
+let seed = 12345;
+const rnd = () => { seed |= 0; seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
+const mk = (len, ch = 2) => new OfflineAudioContext(ch, Math.ceil(len * SR), SR);
+
+function setup(c, revSec = 1.6, revVol = 0.3) {
+  const comp = c.createDynamicsCompressor();
+  comp.threshold.value = -16; comp.knee.value = 12; comp.ratio.value = 3.5; comp.attack.value = 0.004; comp.release.value = 0.18;
+  const master = c.createGain(); master.connect(comp); comp.connect(c.destination);
+  const conv = c.createConvolver(); const n = Math.floor(SR * revSec);
+  const ib = c.createBuffer(2, n, SR);
+  for (let ch = 0; ch < 2; ch++) { const d = ib.getChannelData(ch); let lp = 0; for (let i = 0; i < n; i++) { lp = lp * 0.55 + (rnd() * 2 - 1) * 0.45; d[i] = lp * Math.pow(1 - i / n, 2.6); } }
+  conv.buffer = ib; const rv = c.createGain(); rv.gain.value = revVol; conv.connect(rv); rv.connect(master);
+  const nb = c.createBuffer(1, SR * 2, SR); const nd = nb.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = rnd() * 2 - 1;
+  c.__nb = nb;
+  return { master, in(pan = 0, send = 0.2) { const p = c.createStereoPanner(); p.pan.value = pan; const s = c.createGain(); s.gain.value = send; p.connect(master); p.connect(s); s.connect(conv); return p; } };
+}
+function nz(c, t, dur, type, f, q, vol, out, sweepTo, atk = 0.002) {
+  const s = c.createBufferSource(); s.buffer = c.__nb; s.loop = true;
+  const fl = c.createBiquadFilter(); fl.type = type; fl.frequency.setValueAtTime(f, t); fl.Q.value = q;
+  if (sweepTo) fl.frequency.exponentialRampToValueAtTime(sweepTo, t + dur);
+  const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + atk); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  s.connect(fl); fl.connect(g); g.connect(out); s.start(t, rnd()); s.stop(t + dur + 0.05);
+}
+function osc(c, t, dur, type, f, vol, out, f2, atk = 0.004, dcy) {
+  const o = c.createOscillator(), g = c.createGain(); o.type = type; o.frequency.setValueAtTime(f, t);
+  if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + atk); g.gain.exponentialRampToValueAtTime(0.0001, t + (dcy || dur));
+  o.connect(g); g.connect(out); o.start(t); o.stop(t + dur + 0.05);
+}
+
+/* ---- 乐器 ---- */
+function kick(c, t, v, out) { osc(c, t, 0.4, 'sine', 165, v, out, 42, 0.002, 0.38); nz(c, t, 0.02, 'bandpass', 3500, 1, v * 0.3, out); }
+function taiko(c, t, v, out) { osc(c, t, 0.9, 'sine', 120, v, out, 52, 0.003, 0.8); osc(c, t, 0.5, 'triangle', 240, v * 0.3, out, 90, 0.002, 0.3); nz(c, t, 0.12, 'bandpass', 600, 0.8, v * 0.45, out); }
+function clap(c, t, v, out) { for (let i = 0; i < 3; i++) nz(c, t + i * 0.011, 0.07, 'bandpass', 1500, 0.9, v * 0.5, out); nz(c, t + 0.033, 0.2, 'bandpass', 1700, 0.8, v * 0.6, out); osc(c, t, 0.12, 'triangle', 190, v * 0.25, out, 140); }
+function hat(c, t, v, open, out) { nz(c, t, open ? 0.2 : 0.045, 'highpass', 7500, 0.7, v, out); }
+function shaker(c, t, v, out) { nz(c, t, 0.05, 'bandpass', 6500, 1.2, v, out, 0, 0.012); }
+function wood(c, t, v, out, f = 1800) { osc(c, t, 0.09, 'triangle', f, v, out, f * 0.92, 0.001, 0.08); osc(c, t, 0.05, 'sine', f * 1.9, v * 0.4, out, 0, 0.001, 0.04); nz(c, t, 0.02, 'bandpass', 4000, 2, v * 0.3, out); }
+function crash(c, t, v, dur, out) { nz(c, t, dur, 'highpass', 4200, 0.6, v, out, 0, 0.004); nz(c, t, dur * 0.7, 'bandpass', 8000, 1.5, v * 0.5, out, 0, 0.004); }
+function bell(c, t, midi, v, d, out) {
+  const f = mtof(midi), R = [1, 2, 3, 4.2, 5.4], A = [1, 0.5, 0.3, 0.15, 0.08];
+  R.forEach((r, i) => osc(c, t, d / (1 + i * 0.6), 'sine', f * r, v * A[i], out, 0, 0.002, d / (1 + i * 0.6)));
+}
+function bass(c, t, midi, dur, v, out) {
+  const f = mtof(midi), o = c.createOscillator(), o2 = c.createOscillator(), g = c.createGain(), fl = c.createBiquadFilter();
+  o.type = 'sawtooth'; o2.type = 'sine'; o.frequency.value = f; o2.frequency.value = f;
+  fl.type = 'lowpass'; fl.Q.value = 3; fl.frequency.setValueAtTime(1400, t); fl.frequency.exponentialRampToValueAtTime(260, t + 0.16);
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v, t + 0.006); g.gain.setValueAtTime(v, t + dur * 0.5); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  const g2 = c.createGain(); g2.gain.value = 0.9; o.connect(fl); fl.connect(g); o2.connect(g2); g2.connect(g); g.connect(out); o.start(t); o2.start(t); o.stop(t + dur + 0.05); o2.stop(t + dur + 0.05);
+}
+const ksCache = {};
+function ksBuf(f, dur) {
+  const key = f.toFixed(1) + dur; if (ksCache[key]) return ksCache[key];
+  const n = Math.floor(SR * dur), d = new Float32Array(n), L = Math.max(2, Math.round(SR / f));
+  let prev = 0; for (let i = 0; i < L; i++) { const w = rnd() * 2 - 1; prev = prev * 0.45 + w * 0.55; d[i] = prev; }
+  const decay = 0.9972 - Math.min(0.004, f / 200000);
+  for (let i = L; i < n; i++) d[i] = 0.5 * (d[i - L] + d[i - L + 1]) * decay;
+  let mx = 0; for (let i = 0; i < n; i++) mx = Math.max(mx, Math.abs(d[i])); for (let i = 0; i < n; i++) d[i] /= mx;
+  const b = new AudioBuffer({ length: n, sampleRate: SR, numberOfChannels: 1 }); b.copyToChannel(d, 0); return (ksCache[key] = b);
+}
+function pluck(c, t, midi, v, out, dur = 1.3) {
+  const s = c.createBufferSource(); s.buffer = ksBuf(mtof(midi), dur); const g = c.createGain(); g.gain.value = v;
+  const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 160; s.connect(hp); hp.connect(g); g.connect(out); s.start(t);
+}
+function erhu(c, t, midi, dur, v, out) {
+  const f = mtof(midi), o = c.createOscillator(), lfo = c.createOscillator(), lg = c.createGain(), g = c.createGain();
+  const fl = c.createBiquadFilter(), pk = c.createBiquadFilter();
+  o.type = 'sawtooth'; o.frequency.setValueAtTime(f * 0.94, t); o.frequency.exponentialRampToValueAtTime(f, t + 0.07);
+  lfo.frequency.value = 5.6; lg.gain.value = f * 0.012; lfo.connect(lg); lg.connect(o.frequency);
+  fl.type = 'lowpass'; fl.frequency.value = 2400; fl.Q.value = 1.2; pk.type = 'peaking'; pk.frequency.value = 1400; pk.gain.value = 7; pk.Q.value = 1.4;
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v, t + 0.05); g.gain.setValueAtTime(v * 0.9, t + Math.max(0.06, dur - 0.1)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.08);
+  o.connect(fl); fl.connect(pk); pk.connect(g); g.connect(out); o.start(t); lfo.start(t + 0.1); o.stop(t + dur + 0.1); lfo.stop(t + dur + 0.1);
+}
+function pad(c, t, midis, dur, v, out) {
+  midis.forEach((m) => [-6, 6].forEach((dt) => {
+    const o = c.createOscillator(), g = c.createGain(), fl = c.createBiquadFilter(); o.type = 'triangle'; o.frequency.value = mtof(m); o.detune.value = dt;
+    fl.type = 'lowpass'; fl.frequency.value = 1100; g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v, t + dur * 0.35); g.gain.linearRampToValueAtTime(0.0001, t + dur);
+    o.connect(fl); fl.connect(g); g.connect(out); o.start(t); o.stop(t + dur + 0.05);
+  }));
+}
+function brass(c, t, midis, dur, v, out, swell = 0) {
+  midis.forEach((m) => [-7, 7].forEach((dt) => {
+    const o = c.createOscillator(), g = c.createGain(), fl = c.createBiquadFilter(); o.type = 'sawtooth'; o.frequency.value = mtof(m); o.detune.value = dt;
+    fl.type = 'lowpass'; fl.Q.value = 1; fl.frequency.setValueAtTime(500, t); fl.frequency.exponentialRampToValueAtTime(3800, t + 0.07 + swell); fl.frequency.exponentialRampToValueAtTime(1600, t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v, t + 0.025 + swell * 0.6); g.gain.setValueAtTime(v * 0.8, t + dur * 0.7); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(fl); fl.connect(g); g.connect(out); o.start(t); o.stop(t + dur + 0.05);
+  }));
+}
+function sparkle(c, t, out, v = 0.1) { const f = 2600 + rnd() * 3800; osc(c, t, 0.25, 'sine', f, v, out, f * 1.02, 0.001, 0.22); osc(c, t, 0.12, 'sine', f * 2.01, v * 0.4, out, 0, 0.001, 0.1); }
+
+/* ---- 导出 ---- */
+function norm(buf, peak) {
+  let mx = 0; for (let ch = 0; ch < buf.numberOfChannels; ch++) { const d = buf.getChannelData(ch); for (let i = 0; i < d.length; i++) mx = Math.max(mx, Math.abs(d[i])); }
+  const k = peak / (mx || 1); for (let ch = 0; ch < buf.numberOfChannels; ch++) { const d = buf.getChannelData(ch); for (let i = 0; i < d.length; i++) d[i] *= k; }
+}
+function wavB64(buf) {
+  const ch = buf.numberOfChannels, n = buf.length, out = new DataView(new ArrayBuffer(44 + n * ch * 2));
+  const w = (o, s) => { for (let i = 0; i < s.length; i++) out.setUint8(o + i, s.charCodeAt(i)); };
+  w(0, 'RIFF'); out.setUint32(4, 36 + n * ch * 2, true); w(8, 'WAVEfmt '); out.setUint32(16, 16, true); out.setUint16(20, 1, true); out.setUint16(22, ch, true);
+  out.setUint32(24, SR, true); out.setUint32(28, SR * ch * 2, true); out.setUint16(32, ch * 2, true); out.setUint16(34, 16, true); w(36, 'data'); out.setUint32(40, n * ch * 2, true);
+  const dd = []; for (let c = 0; c < ch; c++) dd.push(buf.getChannelData(c));
+  let o = 44; for (let i = 0; i < n; i++) for (let c = 0; c < ch; c++) { const s = Math.max(-1, Math.min(1, dd[c][i])); out.setInt16(o, s < 0 ? s * 32768 : s * 32767, true); o += 2; }
+  const u = new Uint8Array(out.buffer); let bin = ''; for (let i = 0; i < u.length; i += 8192) bin += String.fromCharCode.apply(null, u.subarray(i, i + 8192)); return btoa(bin);
+}
+function fadeOut(buf, sec) { const n = Math.floor(sec * SR); for (let ch = 0; ch < buf.numberOfChannels; ch++) { const d = buf.getChannelData(ch); for (let i = 0; i < n; i++) d[d.length - 1 - i] *= i / n; } }
+
+/* ---- BGM：D 大调五声音阶，120 BPM，16 小节，无缝循环 ---- */
+async function renderBgm() {
+  seed = 777;
+  const BPM = 120, beat = 60 / BPM, bar = beat * 4, BARS = 16, LEN = bar * BARS, TAIL = 3;
+  const c = mk(LEN + TAIL), m = setup(c, 1.8, 0.28);
+  const oK = m.in(0, 0.02), oS = m.in(0.05, 0.15), oH = m.in(0.25, 0.1), oB = m.in(0, 0.03), oP = [m.in(-0.35, 0.35), m.in(0.35, 0.35)], oL = m.in(0, 0.4), oPad = m.in(0, 0.5), oT = m.in(0, 0.25);
+  const CH = [
+    { root: 38, arp: [62, 66, 69, 74, 78, 74, 69, 66], arp2: [62, 69, 74, 78, 74, 69, 66, 69], pad: [50, 57, 62, 66] },
+    { root: 35, arp: [59, 66, 71, 74, 78, 74, 71, 66], arp2: [59, 71, 74, 78, 74, 71, 66, 71], pad: [47, 54, 59, 66] },
+    { root: 43, arp: [55, 62, 67, 71, 74, 71, 67, 62], arp2: [55, 67, 71, 74, 71, 67, 62, 67], pad: [43, 50, 55, 62] },
+    { root: 45, arp: [57, 64, 69, 76, 81, 76, 69, 64], arp2: [57, 69, 76, 81, 76, 69, 64, 69], pad: [45, 52, 57, 64] },
+  ];
+  const LEAD = [
+    [[0, 74, 1.5], [1.5, 76, .5], [2, 78, 1], [3, 76, 1], [4, 74, 2], [6, 69, 1], [7, 71, 1]],
+    [[0, 71, 1.5], [1.5, 74, .5], [2, 78, 1], [3, 74, 1], [4, 71, 2], [6, 66, 1], [7, 69, 1]],
+    [[0, 74, 1], [1, 71, 1], [2, 74, 1.5], [3.5, 78, .5], [4, 79, 2], [6, 78, 1], [7, 74, 1]],
+    [[0, 76, 1.5], [1.5, 78, .5], [2, 81, 1], [3, 78, 1], [4, 76, 1], [5, 74, 1], [6, 76, 2]],
+  ];
+  for (let b = 0; b < BARS; b++) {
+    const ci = Math.floor(b / 2) % 4, ch = CH[ci], t0 = b * bar;
+    const lvl = b < 4 ? 1 : b < 8 ? 2 : b < 14 ? 3 : 2;
+    for (let s = 0; s < 16; s++) {
+      const t = t0 + s * beat / 4, sw = (s % 2) ? 0.012 : 0;
+      if (s === 0 || s === 8 || (lvl >= 3 && (s === 4 || s === 12)) || (lvl >= 2 && b % 2 && s === 10)) kick(c, t, s % 8 === 0 ? 0.95 : 0.6, oK);
+      if (lvl >= 2 && (s === 4 || s === 12)) clap(c, t, 0.55, oS);
+      if (s % 2 === 0) hat(c, t, lvl === 1 ? 0.12 : 0.17, false, oH);
+      if (lvl >= 3 && (s === 6 || s === 14)) hat(c, t, 0.17, true, oH);
+      if (s % 2 === 1) shaker(c, t + sw, 0.07 + (lvl >= 2 ? 0.03 : 0), oH);
+      if (lvl >= 2 && (s === 3 || s === 11)) wood(c, t, 0.14, oT, s === 3 ? 1900 : 1500);
+    }
+    if (b % 4 === 3) { [12, 13, 14, 15].forEach((s, i) => taiko(c, t0 + s * beat / 4, 0.4 + i * 0.12, oT)); }
+    if (b === 7 || b === 15) { for (let i = 0; i < 8; i++) clap(c, t0 + bar - beat + i * beat / 8, 0.2 + i * 0.06, oS); }
+    if (b === 0 || b === 8) { crash(c, t0, 0.22, 2.2, oH); taiko(c, t0, 0.9, oT); }
+    // bass
+    [[0, 0], [3, 12], [6, 0], [8, 0], [11, 7], [14, 0]].forEach(([s, iv]) => bass(c, t0 + s * beat / 4, ch.root + iv, beat * (iv ? 0.35 : 0.7), iv ? 0.28 : 0.4, oB));
+    // pluck arpeggio
+    const arp = b % 2 ? ch.arp2 : ch.arp;
+    for (let i = 0; i < 8; i++) { pluck(c, t0 + i * beat / 2, arp[i], (lvl === 1 ? 0.18 : 0.24) * (i % 4 === 0 ? 1.2 : 1), oP[i % 2]); }
+    if (lvl >= 2 && b % 2 === 0) [0, 1, 2, 3, 4, 5, 6, 7].forEach((i) => { if (i % 2) pluck(c, t0 + i * beat / 2 + beat / 4, arp[(i + 3) % 8] + 12, 0.1, oP[(i + 1) % 2], 0.8); });
+    // pad
+    if (lvl >= 2 && b % 2 === 0) pad(c, t0, ch.pad, bar * 2, 0.035, oPad);
+    // lead
+    if (b >= 4 && b % 2 === 0) LEAD[ci].forEach(([bt, mid, d]) => erhu(c, t0 + bt * beat, mid, d * beat * 0.95, b >= 8 ? 0.2 : 0.11, oL));
+  }
+  const r = await c.startRendering();
+  const N = Math.floor(LEN * SR), out = new AudioBuffer({ length: N, sampleRate: SR, numberOfChannels: 2 });
+  for (let ch = 0; ch < 2; ch++) { const src = r.getChannelData(ch), d = new Float32Array(N); d.set(src.subarray(0, N)); const tail = src.subarray(N); for (let i = 0; i < tail.length && i < N; i++) d[i] += tail[i]; out.copyToChannel(d, ch); }
+  norm(out, 0.9); return out;
+}
+
+async function fin(c, peak, fade = 0.02) { const r = await c.startRendering(); norm(r, peak); if (fade) fadeOut(r, fade); return r; }
+
+async function renderGong() {
+  seed = 1; const c = mk(5.5), m = setup(c, 2.4, 0.3), o = m.in(0, 0.3);
+  const base = 92, P = [[1, 1, 4.2, 0.01], [1.505, .7, 3.6, 0.02], [2.07, .6, 3, 0.04], [2.71, .45, 2.5, 0.05], [3.31, .35, 2.1, 0.08], [4.12, .28, 1.6, 0.1], [5.43, .18, 1.2, 0.12], [7.31, .12, .8, 0.1]];
+  P.forEach(([r, a, d, atk], i) => { osc(c, 0, d, 'sine', base * r, a * 0.5, o, 0, atk, d); osc(c, 0, d, 'sine', base * r + 1.3 + i * 0.4, a * 0.35, o, 0, atk, d); });
+  nz(c, 0, 0.35, 'bandpass', 2600, 0.8, 0.9, o); nz(c, 0, 1.2, 'bandpass', 1200, 0.6, 0.35, o, 400);
+  osc(c, 0, 2.2, 'sine', 52, 0.9, o, 44, 0.01, 2.0);
+  return fin(c, 0.9, 0.05);
+}
+async function renderRiser() {
+  seed = 2; const c = mk(3.0), m = setup(c, 0.8, 0.15), o = m.in(0, 0.2), T = 3.0;
+  const s = c.createBufferSource(); s.buffer = c.__nb; s.loop = true; const fl = c.createBiquadFilter(); fl.type = 'bandpass'; fl.Q.value = 3.5;
+  fl.frequency.setValueAtTime(250, 0); fl.frequency.exponentialRampToValueAtTime(9000, T); const g = c.createGain(); g.gain.setValueAtTime(0.03, 0); g.gain.exponentialRampToValueAtTime(1, T - 0.05);
+  s.connect(fl); fl.connect(g); g.connect(o); s.start(0);
+  const sw = c.createOscillator(), sg = c.createGain(), sf = c.createBiquadFilter(); sw.type = 'sawtooth'; sw.frequency.setValueAtTime(110, 0); sw.frequency.exponentialRampToValueAtTime(1100, T);
+  sf.type = 'lowpass'; sf.frequency.setValueAtTime(300, 0); sf.frequency.exponentialRampToValueAtTime(7000, T); sg.gain.setValueAtTime(0.02, 0); sg.gain.exponentialRampToValueAtTime(0.5, T - 0.05);
+  sw.connect(sf); sf.connect(sg); sg.connect(o); sw.start(0);
+  const sub = c.createOscillator(), sbg = c.createGain(); sub.type = 'sine'; sub.frequency.setValueAtTime(45, 0); sub.frequency.exponentialRampToValueAtTime(130, T); sbg.gain.setValueAtTime(0.05, 0); sbg.gain.exponentialRampToValueAtTime(0.7, T - 0.1); sub.connect(sbg); sbg.connect(o); sub.start(0);
+  const tr = c.createOscillator(), tg = c.createGain(); tr.type = 'sine'; tr.frequency.setValueAtTime(3, 0); tr.frequency.exponentialRampToValueAtTime(26, T); tg.gain.value = 0.35; tr.connect(tg); tg.connect(g.gain); tr.start(0);
+  return fin(c, 0.9, 0.03);
+}
+async function renderTick() { seed = 3; const c = mk(0.2, 1), m = setup(c, 0.2, 0.05); wood(c, 0, 0.9, m.in(0, 0.05), 2100); return fin(c, 0.85, 0.01); }
+async function renderDrumroll() {
+  seed = 4; const c = mk(2.6), m = setup(c, 1.2, 0.2), o = m.in(0, 0.2), oT = m.in(0, 0.3), T = 2.6;
+  let t = 0; while (t < T - 0.05) { const p = t / T, iv = 0.13 - 0.1 * Math.pow(p, 1.4), v = 0.12 + 0.88 * Math.pow(p, 1.25);
+    nz(c, t, 0.07, 'bandpass', 2300, 0.9, v * 0.8, o); osc(c, t, 0.06, 'triangle', 210, v * 0.35, o, 150, 0.001, 0.05); t += iv; }
+  for (let i = 0; i < 6; i++) { const tt = i * 0.43; taiko(c, tt, 0.25 + i * 0.1, oT); }
+  for (let i = 0; i < 8; i++) { const tt = 1.3 + i * 0.17; taiko(c, tt, 0.35 + i * 0.07, oT); }
+  nz(c, 0.8, 1.8, 'highpass', 3500, 0.5, 0.55, o, 9000, 1.3);
+  const sw = c.createOscillator(), sg = c.createGain(); sw.type = 'triangle'; sw.frequency.setValueAtTime(220, 0); sw.frequency.exponentialRampToValueAtTime(880, T); sg.gain.setValueAtTime(0.0001, 0); sg.gain.exponentialRampToValueAtTime(0.14, T - 0.05); sw.connect(sg); sg.connect(o); sw.start(0);
+  return fin(c, 0.9, 0.04);
+}
+async function renderImpact() {
+  seed = 5; const c = mk(2.8), m = setup(c, 1.8, 0.3), o = m.in(0, 0.25);
+  osc(c, 0, 1.4, 'sine', 100, 1, o, 33, 0.002, 1.3); osc(c, 0, 0.5, 'triangle', 230, 0.35, o, 70, 0.002, 0.4);
+  nz(c, 0, 0.6, 'lowpass', 900, 0.7, 0.9, o); crash(c, 0, 0.45, 2.2, o);
+  bell(c, 0.02, 86, 0.14, 2.2, o); bell(c, 0.02, 93, 0.08, 1.8, o);
+  return fin(c, 0.95, 0.06);
+}
+async function renderThump() { seed = 6; const c = mk(0.35, 1), m = setup(c, 0.2, 0.05), o = m.in(0, 0.03); osc(c, 0, 0.3, 'sine', 140, 1, o, 48, 0.001, 0.25); nz(c, 0, 0.06, 'lowpass', 1800, 0.8, 0.6, o); return fin(c, 0.9, 0.02); }
+async function renderReveal() {
+  seed = 7; const c = mk(3.6), m = setup(c, 1.8, 0.3), o = m.in(0, 0.3), oc = m.in(0, 0.2);
+  crash(c, 0, 0.5, 2.4, oc); taiko(c, 0, 1, oc); kick(c, 0, 0.9, oc);
+  brass(c, 0, [62, 69, 74, 78], 0.32, 0.1, o); brass(c, 0.36, [64, 71, 76, 79], 0.28, 0.1, o);
+  [74, 76, 78, 81, 83, 86].forEach((n, i) => brass(c, 0.75 + i * 0.1, [n], 0.12, 0.13, o));
+  taiko(c, 1.4, 0.9, oc); crash(c, 1.4, 0.45, 2.2, oc); kick(c, 1.4, 0.9, oc);
+  brass(c, 1.4, [62, 69, 74, 78, 86], 2.1, 0.11, o, 0.08);
+  [86, 90, 93, 98].forEach((n, i) => bell(c, 1.45 + i * 0.07, n, 0.1, 1.6, o)); for (let i = 0; i < 14; i++) sparkle(c, 1.5 + rnd() * 1.6, m.in(rnd() * 2 - 1, 0.3), 0.06);
+  return fin(c, 0.92, 0.1);
+}
+async function renderBigwin() {
+  seed = 8; const c = mk(5.2), m = setup(c, 2, 0.3), o = m.in(0, 0.3), oc = m.in(0, 0.2);
+  const run = [62, 66, 69, 74, 78, 81, 86, 90, 93, 98, 102];
+  run.forEach((n, i) => { bell(c, i * 0.075, n, 0.12, 1.2, m.in(-0.6 + i * 0.12, 0.3)); pluck(c, i * 0.075, n - 12, 0.3, o, 0.9); });
+  crash(c, 0.9, 0.5, 3, oc); taiko(c, 0.9, 1, oc); kick(c, 0.9, 0.9, oc); osc(c, 0.9, 1.6, 'sine', 70, 0.7, oc, 36, 0.003, 1.5);
+  brass(c, 0.9, [62, 69, 74, 78, 86], 0.4, 0.12, o); brass(c, 1.35, [64, 71, 76, 79, 88], 0.4, 0.12, o);
+  brass(c, 1.8, [62, 69, 74, 78, 86, 90], 2.8, 0.12, o, 0.1);
+  [86, 90, 93, 98].forEach((n, i) => bell(c, 1.85 + i * 0.1, n, 0.12, 2.2, o));
+  for (let i = 0; i < 70; i++) { const tt = 0.9 + Math.pow(rnd(), 1.5) * 3.9; sparkle(c, tt, m.in(rnd() * 2 - 1, 0.35), 0.05 + 0.04 * rnd()); }
+  const mel = [[2.2, 93], [2.5, 90], [2.8, 93], [3.1, 98], [3.6, 93]]; mel.forEach(([t, n]) => bell(c, t, n, 0.1, 1.2, o));
+  return fin(c, 0.92, 0.2);
+}
+async function renderSmallwin() {
+  seed = 9; const c = mk(1.8), m = setup(c, 1.4, 0.3), o = m.in(0, 0.3);
+  [[0, 86], [0.11, 90], [0.22, 93], [0.38, 98]].forEach(([t, n]) => { bell(c, t, n, 0.2, 1.1, o); });
+  pluck(c, 0, 62, 0.25, o, 0.9); for (let i = 0; i < 6; i++) sparkle(c, 0.3 + i * 0.1, m.in(rnd() * 2 - 1, 0.3), 0.05);
+  return fin(c, 0.85, 0.12);
+}
+async function renderLose() {
+  seed = 10; const c = mk(1.8), m = setup(c, 1.6, 0.35), o = m.in(0, 0.35);
+  [[0, 66], [0.3, 62]].forEach(([t, n]) => { osc(c, t, 0.9, 'sine', mtof(n), 0.35, o, 0, 0.004, 0.8); osc(c, t, 0.4, 'sine', mtof(n) * 3, 0.12, o, 0, 0.002, 0.3); osc(c, t, 0.15, 'triangle', mtof(n) * 2, 0.1, o, 0, 0.001, 0.1); });
+  pad(c, 0, [50, 57], 1.6, 0.04, o);
+  return fin(c, 0.7, 0.15);
+}
+async function renderDing() { seed = 11; const c = mk(0.9), m = setup(c, 0.8, 0.2), o = m.in(0, 0.2); bell(c, 0, 93, 0.25, 0.7, o); bell(c, 0.07, 100, 0.2, 0.6, o); return fin(c, 0.8, 0.05); }
+async function renderStart() { seed = 12; const c = mk(1.1), m = setup(c, 0.9, 0.25), o = m.in(0, 0.25); wood(c, 0, 0.5, o, 1500); bell(c, 0.05, 86, 0.2, 0.9, o); bell(c, 0.16, 93, 0.2, 0.9, o); pluck(c, 0.05, 74, 0.25, o, 0.7); return fin(c, 0.8, 0.08); }
+
+window.RENDER = async (name) => {
+  const f = { bgm: renderBgm, gong: renderGong, riser: renderRiser, tick: renderTick, drumroll: renderDrumroll, impact: renderImpact, thump: renderThump, reveal: renderReveal, bigwin: renderBigwin, smallwin: renderSmallwin, lose: renderLose, ding: renderDing, start: renderStart }[name];
+  return wavB64(await f());
+};
+</script>
