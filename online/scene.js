@@ -156,7 +156,7 @@ export async function createStage(host, imgs, hooks = {}) {
   const restY = (q) => { tmpM.makeRotationFromQuaternion(q); const e = tmpM.elements; return HALF * (Math.abs(e[1]) + Math.abs(e[5]) + Math.abs(e[9])); };
   const faceOf = (d, sym) => LAYOUTS[d].indexOf(sym);
   let mode = 'idle', t0 = performance.now(), result = [0, 1, 2], shake = 0, power = 0.5, camSwayAmp = 0.1;
-  const setResult = (r) => { result = r.slice(); };
+  const setResult = (r) => { result = (r || result).slice(); };
   const setTargets = () => dice.forEach((d, i) => { d.tq.copy(orient(faceOf(i, result[i]), WUP, NZ)); tmpQ.setFromAxisAngle(WUP, d.yaw); d.tq.premultiply(tmpQ); });
   const setEmi = (d, r, g, b) => { for (let k = 0; k < 6; k++) d.mats[k].emissive.setRGB(r, g, b); };
   const place = (d, i) => { d.q.copy(d.tq); d.p.set(SLOTS[i][0], restY(d.q), SLOTS[i][1]); d.v.set(0, 0, 0); };
