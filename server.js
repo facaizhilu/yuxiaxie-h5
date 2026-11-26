@@ -56,6 +56,7 @@ const USER_RE = /^[A-Za-z0-9_\u4e00-\u9fa5]{3,16}$/;
 // ---------------- HTTP ----------------
 const app = express();
 app.set('trust proxy', true);
+app.use(require('compression')());
 app.use(express.json({ limit: '10kb' }));
 
 const regLog = new Map(); // ip -> [timestamps]
@@ -121,6 +122,7 @@ app.get('/', sendFile('online/index.html'));
 app.get('/online.js', sendFile('online/online.js'));
 app.get('/online.css', sendFile('online/online.css'));
 ['style.css', 'symbols.js', 'audio.js'].forEach((f) => app.get('/' + f, sendFile(f)));
+app.use('/o', express.static(path.join(__dirname, 'online'), { maxAge: '1h', index: false, setHeaders: (res, f) => { if (/\.(webp|woff2|mp3)$|vendor/.test(f)) res.setHeader('Cache-Control', 'public, max-age=604800'); } }));
 app.use('/audio', express.static(path.join(__dirname, 'audio'), { maxAge: '7d', index: false }));
 
 const server = http.createServer(app);

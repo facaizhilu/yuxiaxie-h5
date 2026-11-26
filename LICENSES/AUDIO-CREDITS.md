@@ -1,3 +1,19 @@
+# 资源来源与许可（v2 在线版重做）
+
+## 0. v2 音乐与音效（原创合成，CC0 1.0）
+`audio/v2/*.mp3` 全部由本仓库 `tools/render-audio2.html` + `tools/audio-lib.js` 用代码离线渲染（Web Audio 合成 / Karplus-Strong 物理建模），未使用任何第三方采样，按 CC0 1.0 发布。重新渲染：`node tools/render-audio2.js`（需要 playwright、Chrome、ffmpeg）。
+- `login.mp3`：东南亚佛寺氛围曲，76 BPM D 五声音阶，16 小节无缝循环 —— 拉纳德木琴式琶音、围锣（khong wong）、钹（ching/chap）、通鼓、老挝笙（khaen）式簧管长音与旋律、寺钟、蟋蟀与风声、长混响。
+- `lobby.mp3`：科幻电子曲，124 BPM A 小调（Am-F-C-G），16 小节无缝循环 —— 四拍底鼓、侧链超锯齿铺底、反拍贝斯、带延迟的方波琶音、第 8-15 小节主旋律、过门与上扬。
+- 音效：chip、tap、hover、confirm、tick、riser、lock、spin、hit、land、reveal、win、bigwin、lose、start。
+- 运行时另叠加下文第 2 节的 Kenney CC0 实录骰子/筹码/硬币采样。
+
+## 图像、字体与库
+- `online/img/*.webp`（六种图案与登录背景）：本项目用 AI 图像生成工具生成后抠图处理，为本项目原创素材。
+- `online/fonts/orbitron.woff2`：Orbitron 字体，SIL Open Font License 1.1（见 `online/fonts/Orbitron-OFL.txt`）。
+- `online/vendor/three.module.min.js`、`RoundedBoxGeometry.js`、`RoomEnvironment.js`：three.js r170，MIT 许可（见 `online/vendor/three-LICENSE.txt`）。
+
+---
+
 # 音频来源与许可
 
 ## 1. 原创合成音频（CC0 / 公共领域）

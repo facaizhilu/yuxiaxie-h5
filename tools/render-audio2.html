@@ -1,0 +1,190 @@
+<!doctype html><meta charset="utf-8"><title>render v2</title>
+<script src="audio-lib.js"></script>
+<script>
+/* v2 原创音频：登录页东南亚寺庙氛围曲、大厅电子科幻曲、科幻音效。全部代码合成（CC0）。 */
+function delayFx(c, out, time, fb, wet, lp = 3000) {
+  const inp = c.createGain(), d = c.createDelay(2), f = c.createGain(), w = c.createGain(), l = c.createBiquadFilter();
+  d.delayTime.value = time; f.gain.value = fb; w.gain.value = wet; l.type = 'lowpass'; l.frequency.value = lp;
+  inp.connect(out); inp.connect(d); d.connect(l); l.connect(f); f.connect(d); l.connect(w); w.connect(out); return inp;
+}
+function mallet(c, t, midi, v, out, d = 0.5) { // 拉纳德木琴
+  const f = mtof(midi);
+  osc(c, t, d, 'sine', f, v, out, 0, 0.001, d); osc(c, t, d * 0.35, 'sine', f * 3.93, v * 0.28, out, 0, 0.001, d * 0.3);
+  osc(c, t, d * 0.15, 'sine', f * 9.2, v * 0.1, out, 0, 0.001, d * 0.12); nz(c, t, 0.02, 'bandpass', 2500, 1.5, v * 0.25, out);
+}
+function khong(c, t, midi, v, out, d = 1.8) { // 围锣
+  const f = mtof(midi);
+  [[1, 1, 1], [2.02, 0.35, 0.6], [2.98, 0.2, 0.45], [4.1, 0.12, 0.3]].forEach(([r, a, dd]) => osc(c, t, d * dd, 'sine', f * r, v * a, out, 0, 0.003, d * dd));
+  osc(c, t, d, 'sine', f * 1.003 + 0.8, v * 0.4, out, 0, 0.003, d);
+}
+function ching(c, t, v, out, open = true) {
+  if (open) [3210, 4470, 5630, 7020, 8410].forEach((f, i) => osc(c, t, 0.9 - i * 0.1, 'sine', f, v * (0.5 - i * 0.07), out, 0, 0.001, 0.9 - i * 0.12));
+  nz(c, t, open ? 0.25 : 0.05, 'highpass', 5000, 0.7, v * (open ? 0.4 : 0.8), out);
+}
+function thon(c, t, v, out, hi) { if (hi) { osc(c, t, 0.15, 'sine', 320, v * 0.6, out, 260, 0.001, 0.12); nz(c, t, 0.04, 'bandpass', 1500, 1, v * 0.4, out); } else { osc(c, t, 0.5, 'sine', 95, v, out, 62, 0.002, 0.45); } }
+function khaen(c, t, midis, dur, v, out) { // 老挝芦笙（簧管）
+  midis.forEach((m, i) => {
+    const o = c.createOscillator(), g = c.createGain(), bp = c.createBiquadFilter(), lfo = c.createOscillator(), lg = c.createGain();
+    o.type = 'square'; o.frequency.value = mtof(m); o.detune.value = (i - 1) * 4; bp.type = 'bandpass'; bp.frequency.value = 900 + i * 300; bp.Q.value = 0.7;
+    lfo.frequency.value = 4.5 + i * 0.3; lg.gain.value = v * 0.15; lfo.connect(lg); lg.connect(g.gain);
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v, t + 0.12); g.gain.setValueAtTime(v, t + dur - 0.15); g.gain.linearRampToValueAtTime(0.0001, t + dur);
+    o.connect(bp); bp.connect(g); g.connect(out); o.start(t); lfo.start(t); o.stop(t + dur + 0.05); lfo.stop(t + dur + 0.05);
+  });
+}
+function templeBell(c, t, v, out) { const f = 110; [[0.5, .6, 7], [1, 1, 6], [1.19, .5, 5], [1.56, .45, 4.5], [2, .35, 4], [2.5, .25, 3], [3.01, .2, 2.4], [4.2, .1, 1.6]].forEach(([r, a, d]) => { osc(c, t, d, 'sine', f * r, v * a, out, 0, 0.004, d); osc(c, t, d, 'sine', f * r + 0.7, v * a * 0.5, out, 0, 0.004, d); }); nz(c, t, 0.08, 'bandpass', 1800, 1, v * 0.3, out); }
+function crickets(c, t0, dur, v, out) { let t = t0; while (t < t0 + dur) { const f = 4200 + rnd() * 600; for (let k = 0; k < 3; k++) osc(c, t + k * 0.045, 0.03, 'sine', f, v, out, 0, 0.005, 0.03); t += 0.6 + rnd() * 1.6; } }
+
+async function renderLogin() {
+  seed = 2026; const BPM = 76, beat = 60 / BPM, bar = beat * 4, BARS = 16, LEN = bar * BARS, TAIL = 4;
+  const c = mk(LEN + TAIL), m = setup(c, 3.2, 0.42);
+  const oM = m.in(-0.2, 0.45), oK = m.in(0.25, 0.5), oC = m.in(0.35, 0.35), oD = m.in(0, 0.25), oP = m.in(0, 0.6), oA = m.in(0, 0.3), oX = m.in(-0.1, 0.5);
+  const roots = [50, 50, 47, 47, 43, 43, 45, 45];
+  const SKEL = [[62, 69, 66, 64], [62, 64, 66, 69], [59, 66, 64, 62], [59, 62, 64, 66], [55, 62, 59, 57], [55, 57, 59, 62], [57, 64, 62, 59], [57, 59, 62, 64]];
+  // 拉纳德：连续八分音符，围绕骨干音
+  const run = (sk) => { const o = []; for (let i = 0; i < 4; i++) { const a = sk[i], b = sk[(i + 1) % 4]; o.push(a + 12, a + 14 > 81 ? a + 12 : a + 14, b + 12, a + 12); } return o; };
+  const PENT = [62, 64, 66, 69, 71, 74, 76, 78, 81];
+  for (let b = 0; b < BARS; b++) {
+    const t0 = b * bar, ci = b % 8, sk = SKEL[ci], lvl = b < 4 ? 1 : b < 12 ? 2 : 3;
+    pad(c, t0, [roots[ci], roots[ci] + 7, roots[ci] + 12], bar * 1.05, 0.03, oP);
+    sk.forEach((n, i) => khong(c, t0 + i * beat, n, lvl === 1 ? 0.12 : 0.1, oK, 2.2));
+    if (lvl >= 2) {
+      const r = run(sk).map((n) => PENT.reduce((p, q) => Math.abs(q - n) < Math.abs(p - n) ? q : p, PENT[0]));
+      r.forEach((n, i) => mallet(c, t0 + i * beat / 4, n + (i % 4 === 0 ? 0 : 0), (i % 4 === 0 ? 0.16 : 0.11) * (lvl === 3 ? 1.1 : 1), oM, 0.45));
+      [0, 2].forEach((bt) => ching(c, t0 + bt * beat, 0.05, oC, false)); [1, 3].forEach((bt) => ching(c, t0 + bt * beat, 0.07, oC, true));
+      thon(c, t0, 0.35, oD); thon(c, t0 + beat * 2.5, 0.25, oD); thon(c, t0 + beat * 1.5, 0.18, oD, true); thon(c, t0 + beat * 3.5, 0.18, oD, true);
+    }
+    if (lvl === 3 || (b >= 4 && b < 12 && b % 2 === 0)) khaen(c, t0, [roots[ci] + 12, roots[ci] + 19, roots[ci] + 24], bar * (lvl === 3 ? 1 : 2), lvl === 3 ? 0.035 : 0.02, oX);
+    if (lvl === 3) [[0, 2], [2, 1], [3, 1]].forEach(([bt, d], i) => khaen(c, t0 + bt * beat, [sk[i] + 12], d * beat * 0.95, 0.05, oX));
+    if (b % 8 === 0) templeBell(c, t0, 0.35, oA);
+    crickets(c, t0, bar, 0.012, oA);
+  }
+  nz(c, 0, LEN, 'lowpass', 500, 0.5, 0.03, oA, 0, 4);
+  const r = await c.startRendering(); return loopify(r, LEN, 0.85);
+}
+
+function supersaw(c, t, midis, dur, v, out, cut = 2200, atk = 0.02) {
+  midis.forEach((mm) => [-14, -6, 0, 6, 14].forEach((dt) => {
+    const o = c.createOscillator(), g = c.createGain(), fl = c.createBiquadFilter(); o.type = 'sawtooth'; o.frequency.value = mtof(mm); o.detune.value = dt;
+    fl.type = 'lowpass'; fl.frequency.value = cut; fl.Q.value = 0.8;
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v, t + atk); g.gain.setValueAtTime(v, t + dur * 0.85); g.gain.linearRampToValueAtTime(0.0001, t + dur);
+    o.connect(fl); fl.connect(g); g.connect(out); o.start(t); o.stop(t + dur + 0.05);
+  }));
+}
+function sqPluck(c, t, midi, v, out, d = 0.18, cut = 2600) {
+  const o = c.createOscillator(), g = c.createGain(), fl = c.createBiquadFilter(); o.type = 'square'; o.frequency.value = mtof(midi);
+  fl.type = 'lowpass'; fl.Q.value = 4; fl.frequency.setValueAtTime(cut, t); fl.frequency.exponentialRampToValueAtTime(400, t + d);
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v, t + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+  o.connect(fl); fl.connect(g); g.connect(out); o.start(t); o.stop(t + d + 0.05);
+}
+function loopify(r, LEN, peak) {
+  const N = Math.floor(LEN * SR), out = new AudioBuffer({ length: N, sampleRate: SR, numberOfChannels: 2 });
+  for (let ch = 0; ch < 2; ch++) { const src = r.getChannelData(ch), d = new Float32Array(N); d.set(src.subarray(0, N)); const tail = src.subarray(N); for (let i = 0; i < tail.length && i < N; i++) d[i] += tail[i]; out.copyToChannel(d, ch); }
+  norm(out, peak); return out;
+}
+async function renderLobby() {
+  seed = 4242; const BPM = 124, beat = 60 / BPM, bar = beat * 4, BARS = 16, LEN = bar * BARS, TAIL = 3;
+  const c = mk(LEN + TAIL), m = setup(c, 2.0, 0.25);
+  const sc = c.createGain(); const scOut = m.in(0, 0.35); sc.connect(scOut);
+  const oK = m.in(0, 0.02), oS = m.in(0, 0.25), oH = m.in(0.2, 0.08), oB = m.in(0, 0.02);
+  const arpDel = delayFx(c, m.in(-0.25, 0.2), beat * 0.75, 0.38, 0.35, 2800), leadDel = delayFx(c, m.in(0.15, 0.3), beat * 0.5, 0.3, 0.3, 3500);
+  for (let i = 0; i < BARS * 4 + 8; i++) { const t = i * beat; sc.gain.setValueAtTime(0.22, t); sc.gain.linearRampToValueAtTime(1, t + beat * 0.55); }
+  const CH = [[57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62]]; const ROOT = [33, 29, 36, 31];
+  const LEAD = [[0, 76, 1], [1, 79, 0.5], [1.5, 81, 1.5], [3, 79, 0.5], [3.5, 76, 0.5], [4, 74, 1.5], [5.5, 72, 0.5], [6, 74, 2]];
+  for (let b = 0; b < BARS; b++) {
+    const t0 = b * bar, ci = Math.floor(b / 2) % 4, ch = CH[ci], lvl = b < 4 ? 1 : b < 8 ? 2 : b < 15 ? 3 : 2;
+    for (let s = 0; s < 16; s++) {
+      const t = t0 + s * beat / 4;
+      if (s % 4 === 0) kick(c, t, 1, oK);
+      if (lvl >= 2 && (s === 4 || s === 12)) clap(c, t, 0.6, oS);
+      if (s % 4 === 2) hat(c, t, 0.2, lvl >= 3, oH); else if (lvl >= 2) hat(c, t, 0.08, false, oH);
+      if (s % 4 !== 0) bass(c, t, ROOT[ci] + (s % 4 === 3 ? 12 : 0), beat / 4 * 0.9, 0.32, oB);
+      const arpN = [0, 1, 2, 1, 0, 2, 1, 2][s % 8], oct = s >= 8 ? 24 : 12;
+      if (lvl >= 1) sqPluck(c, t, ch[arpN] + oct, lvl === 1 ? 0.05 : 0.07, arpDel, 0.16, 1200 + (b % 8) * 400);
+    }
+    if (b % 2 === 0) supersaw(c, t0, ch.map((n) => n + 12), bar * 2, lvl === 1 ? 0.012 : 0.018, sc, lvl === 3 ? 3200 : 1800, 0.3);
+    if (lvl === 3 && b % 2 === 0) LEAD.forEach(([bt, n, d]) => { sqPluck(c, t0 + bt * beat, n, 0.09, leadDel, d * beat, 3800); osc(c, t0 + bt * beat, d * beat, 'sawtooth', mtof(n), 0.03, leadDel, 0, 0.01, d * beat); });
+    if (b === 7 || b === 15) { nz(c, t0 + bar * 0.5, bar * 0.5, 'bandpass', 400, 1.2, 0.35, oS, 8000, bar * 0.48); for (let i = 0; i < 8; i++) clap(c, t0 + bar * 0.75 + i * beat / 8, 0.15 + i * 0.05, oS); }
+    if (b === 0 || b === 8) { crash(c, t0, 0.25, 2.5, oH); osc(c, t0, 1.6, 'sine', 55, 0.6, oK, 30, 0.003, 1.5); }
+    if (b % 4 === 2) { const f = 1800 + rnd() * 800; osc(c, t0 + beat * 3.5, 0.35, 'sine', f, 0.05, arpDel, f * 0.25, 0.002, 0.33); }
+  }
+  const r = await c.startRendering(); return loopify(r, LEN, 0.88);
+}
+
+/* ---- 科幻音效 ---- */
+async function sChip() { seed = 31; const c = mk(0.3, 1), m = setup(c, 0.3, 0.1), o = m.in(0, 0.1); osc(c, 0, 0.12, 'sine', 2350, 0.6, o, 2900, 0.001, 0.1); osc(c, 0, 0.08, 'sine', 3800, 0.3, o, 0, 0.001, 0.06); nz(c, 0, 0.015, 'highpass', 5000, 1, 0.5, o); return fin(c, 0.8, 0.01); }
+async function sTap() { seed = 32; const c = mk(0.15, 1), m = setup(c, 0.2, 0.05), o = m.in(0, 0.05); osc(c, 0, 0.07, 'sine', 1300, 0.7, o, 1900, 0.001, 0.06); return fin(c, 0.7, 0.01); }
+async function sConfirm() { seed = 33; const c = mk(0.8), m = setup(c, 0.9, 0.25), o = m.in(0, 0.25); [[0, 81], [0.07, 88], [0.14, 93]].forEach(([t, n]) => { sqPluck(c, t, n, 0.25, o, 0.25, 4000); osc(c, t, 0.4, 'sine', mtof(n), 0.15, o, 0, 0.002, 0.4); }); return fin(c, 0.8, 0.05); }
+async function sTick() { seed = 34; const c = mk(0.12, 1), m = setup(c, 0.15, 0.05), o = m.in(0, 0.05); osc(c, 0, 0.06, 'square', 1180, 0.4, o, 0, 0.001, 0.05); osc(c, 0, 0.06, 'sine', 2360, 0.3, o, 0, 0.001, 0.05); return fin(c, 0.75, 0.01); }
+async function sRiser() {
+  seed = 35; const T = 3.0, c = mk(T), m = setup(c, 1, 0.2), o = m.in(0, 0.2);
+  nz(c, 0, T, 'bandpass', 300, 3, 0.5, o, 9000, T - 0.1);
+  const sw = c.createOscillator(), sg = c.createGain(), sf = c.createBiquadFilter(); sw.type = 'sawtooth'; sw.frequency.setValueAtTime(90, 0); sw.frequency.exponentialRampToValueAtTime(720, T); sf.type = 'lowpass'; sf.Q.value = 6; sf.frequency.setValueAtTime(300, 0); sf.frequency.exponentialRampToValueAtTime(6000, T); sg.gain.setValueAtTime(0.03, 0); sg.gain.exponentialRampToValueAtTime(0.5, T - 0.05); sw.connect(sf); sf.connect(sg); sg.connect(o); sw.start(0);
+  const wh = c.createOscillator(), wg = c.createGain(); wh.type = 'sine'; wh.frequency.setValueAtTime(400, 0); wh.frequency.exponentialRampToValueAtTime(3200, T); wg.gain.setValueAtTime(0.01, 0); wg.gain.exponentialRampToValueAtTime(0.18, T); wh.connect(wg); wg.connect(o); wh.start(0);
+  const tr = c.createOscillator(), tg = c.createGain(); tr.type = 'square'; tr.frequency.setValueAtTime(4, 0); tr.frequency.exponentialRampToValueAtTime(30, T); tg.gain.value = 0.25; tr.connect(tg); tg.connect(sg.gain); tr.start(0);
+  return fin(c, 0.9, 0.03);
+}
+async function sLock() {
+  seed = 36; const c = mk(2.2), m = setup(c, 1.6, 0.3), o = m.in(0, 0.3);
+  const v = c.createOscillator(), vg = c.createGain(), vf = c.createBiquadFilter(); v.type = 'sawtooth'; v.frequency.setValueAtTime(140, 0); v.frequency.exponentialRampToValueAtTime(38, 0.9); vf.type = 'lowpass'; vf.frequency.setValueAtTime(2400, 0); vf.frequency.exponentialRampToValueAtTime(150, 1); vg.gain.setValueAtTime(0.7, 0); vg.gain.exponentialRampToValueAtTime(0.0001, 1.2); v.connect(vf); vf.connect(vg); vg.connect(o); v.start(0); v.stop(1.3);
+  [[620, 0.9], [1470, 0.6], [2310, 0.4], [3390, 0.3]].forEach(([f, a]) => osc(c, 0, 0.8, 'sine', f, a * 0.3, o, 0, 0.001, 0.7)); nz(c, 0, 0.18, 'bandpass', 2200, 1.4, 0.8, o);
+  osc(c, 0, 0.9, 'sine', 60, 0.8, o, 32, 0.003, 0.85);
+  [0.35, 0.6].forEach((t) => { osc(c, t, 0.16, 'square', 1480, 0.12, o, 0, 0.002, 0.15); osc(c, t, 0.16, 'square', 1975, 0.08, o, 0, 0.002, 0.15); });
+  return fin(c, 0.92, 0.1);
+}
+async function sSpin() {
+  seed = 37; const T = 2.6, c = mk(T), m = setup(c, 1.2, 0.22), o = m.in(0, 0.2);
+  const h = c.createOscillator(), hg = c.createGain(), hf = c.createBiquadFilter(); h.type = 'sawtooth'; h.frequency.setValueAtTime(70, 0); h.frequency.exponentialRampToValueAtTime(260, T); hf.type = 'lowpass'; hf.frequency.setValueAtTime(400, 0); hf.frequency.exponentialRampToValueAtTime(3500, T); hg.gain.setValueAtTime(0.1, 0); hg.gain.linearRampToValueAtTime(0.45, T - 0.05); h.connect(hf); hf.connect(hg); hg.connect(o); h.start(0);
+  const lf = c.createOscillator(), lg = c.createGain(); lf.frequency.setValueAtTime(6, 0); lf.frequency.exponentialRampToValueAtTime(28, T); lg.gain.value = 0.2; lf.connect(lg); lg.connect(hg.gain); lf.start(0);
+  let t = 0.05; while (t < T - 0.05) { const p = t / T; [700 + rnd() * 1800].forEach((f) => { osc(c, t, 0.08, 'sine', f, 0.12 + p * 0.2, o, 0, 0.001, 0.07); osc(c, t, 0.05, 'sine', f * 2.7, 0.06 + p * 0.1, o, 0, 0.001, 0.04); }); nz(c, t, 0.03, 'bandpass', 3000, 2, 0.2 + p * 0.3, o); t += 0.09 - 0.06 * p + rnd() * 0.04; }
+  for (let i = 0; i < 16; i++) { const tt = i * (T / 16), v = 0.15 + i / 16 * 0.6; osc(c, tt, 0.25, 'sine', 120 + i * 6, v, o, 60, 0.002, 0.22); }
+  nz(c, 1.1, T - 1.1, 'highpass', 3000, 0.6, 0.4, o, 9000, T - 1.15);
+  return fin(c, 0.9, 0.04);
+}
+async function sHit() { seed = 38; const c = mk(0.4, 1), m = setup(c, 0.4, 0.1), o = m.in(0, 0.1); osc(c, 0, 0.25, 'sine', 150, 0.9, o, 55, 0.001, 0.22); [[880, .4], [1990, .25], [3150, .15]].forEach(([f, a]) => osc(c, 0, 0.2, 'sine', f, a, o, 0, 0.001, 0.18)); nz(c, 0, 0.05, 'bandpass', 2600, 1.2, 0.6, o); return fin(c, 0.9, 0.02); }
+async function sLand() {
+  seed = 39; const c = mk(3), m = setup(c, 2.2, 0.35), o = m.in(0, 0.3);
+  osc(c, 0, 1.6, 'sine', 90, 1, o, 28, 0.002, 1.5); osc(c, 0, 0.6, 'triangle', 220, 0.4, o, 60, 0.002, 0.5);
+  [[311, .5, 1.6], [742, .35, 1.2], [1187, .25, 0.9], [1903, .18, 0.7], [2875, .12, 0.5]].forEach(([f, a, d]) => { osc(c, 0, d, 'sine', f, a * 0.4, o, 0, 0.001, d); osc(c, 0, d, 'sine', f + 2.1, a * 0.25, o, 0, 0.001, d); });
+  nz(c, 0, 0.5, 'lowpass', 1200, 0.7, 0.9, o); crash(c, 0, 0.35, 2.4, o);
+  nz(c, 0.05, 1.2, 'bandpass', 3000, 2, 0.3, o, 300, 0.05);
+  return fin(c, 0.95, 0.1);
+}
+async function sReveal() {
+  seed = 40; const c = mk(3), m = setup(c, 1.8, 0.32), o = m.in(0, 0.3);
+  nz(c, 0, 0.5, 'bandpass', 500, 2, 0.5, o, 9000, 0.4); osc(c, 0, 0.5, 'sine', 300, 0.2, o, 2400, 0.01, 0.45);
+  kick(c, 0.45, 1, o); crash(c, 0.45, 0.3, 2.2, o);
+  supersaw(c, 0.45, [57, 64, 69, 73, 76], 1.6, 0.03, o, 4200, 0.01);
+  [81, 85, 88, 93].forEach((n, i) => sqPluck(c, 0.5 + i * 0.08, n, 0.15, o, 0.3, 5000));
+  for (let i = 0; i < 12; i++) sparkle(c, 0.6 + rnd() * 1.5, m.in(rnd() * 2 - 1, 0.3), 0.05);
+  return fin(c, 0.9, 0.15);
+}
+async function sWin() {
+  seed = 41; const c = mk(1.8), m = setup(c, 1.4, 0.3), o = m.in(0, 0.3);
+  [69, 73, 76, 81, 85, 88].forEach((n, i) => { sqPluck(c, i * 0.06, n + 12, 0.2, o, 0.25, 5000); osc(c, i * 0.06, 0.5, 'sine', mtof(n + 12), 0.1, o, 0, 0.002, 0.45); });
+  for (let i = 0; i < 8; i++) sparkle(c, 0.3 + i * 0.09, m.in(rnd() * 2 - 1, 0.3), 0.06);
+  return fin(c, 0.85, 0.12);
+}
+async function sBigwin() {
+  seed = 42; const c = mk(5), m = setup(c, 2, 0.32), o = m.in(0, 0.3);
+  for (let i = 0; i < 16; i++) sqPluck(c, i * 0.05, [69, 73, 76, 81][i % 4] + 12 * Math.floor(i / 4), 0.16, o, 0.2, 5000);
+  kick(c, 0.8, 1, o); crash(c, 0.8, 0.45, 3, o); osc(c, 0.8, 1.8, 'sine', 55, 0.8, o, 30, 0.003, 1.7);
+  supersaw(c, 0.8, [57, 64, 69, 73, 76, 81], 3.4, 0.03, o, 4500, 0.05);
+  brass(c, 0.8, [69, 73, 76], 0.4, 0.08, o); brass(c, 1.25, [71, 74, 78], 0.4, 0.08, o); brass(c, 1.7, [69, 73, 76, 81], 2.4, 0.08, o, 0.1);
+  for (let i = 0; i < 60; i++) sparkle(c, 0.8 + Math.pow(rnd(), 1.4) * 3.9, m.in(rnd() * 2 - 1, 0.35), 0.04 + rnd() * 0.04);
+  [[2.2, 93], [2.45, 97], [2.7, 100], [3.0, 105]].forEach(([t, n]) => bell(c, t, n, 0.08, 1.2, o));
+  return fin(c, 0.92, 0.25);
+}
+async function sLose() {
+  seed = 43; const c = mk(1.4), m = setup(c, 1.2, 0.3), o = m.in(0, 0.3);
+  const v = c.createOscillator(), g = c.createGain(), f = c.createBiquadFilter(); v.type = 'sawtooth'; v.frequency.setValueAtTime(440, 0); v.frequency.exponentialRampToValueAtTime(70, 1.1); f.type = 'lowpass'; f.frequency.setValueAtTime(1800, 0); f.frequency.exponentialRampToValueAtTime(150, 1.1); g.gain.setValueAtTime(0.0001, 0); g.gain.linearRampToValueAtTime(0.3, 0.02); g.gain.exponentialRampToValueAtTime(0.0001, 1.2); v.connect(f); f.connect(g); g.connect(o); v.start(0); v.stop(1.3);
+  osc(c, 0.1, 0.8, 'sine', 220, 0.2, o, 110, 0.01, 0.7);
+  return fin(c, 0.6, 0.1);
+}
+async function sStart() { seed = 44; const c = mk(1), m = setup(c, 1, 0.3), o = m.in(0, 0.3); osc(c, 0, 0.3, 'sine', 600, 0.3, o, 1800, 0.005, 0.28); [[0.12, 88], [0.22, 93]].forEach(([t, n]) => { sqPluck(c, t, n, 0.18, o, 0.3, 5000); osc(c, t, 0.5, 'sine', mtof(n), 0.1, o, 0, 0.002, 0.45); }); return fin(c, 0.75, 0.06); }
+async function sHover() { seed = 45; const c = mk(0.12, 1), m = setup(c, 0.1, 0.05), o = m.in(0, 0.05); osc(c, 0, 0.06, 'sine', 2600, 0.4, o, 3000, 0.001, 0.05); return fin(c, 0.5, 0.01); }
+
+window.RENDER = async (name) => {
+  const f = { login: renderLogin, lobby: renderLobby, chip: sChip, tap: sTap, confirm: sConfirm, tick: sTick, riser: sRiser, lock: sLock, spin: sSpin, hit: sHit, land: sLand, reveal: sReveal, win: sWin, bigwin: sBigwin, lose: sLose, start: sStart, hover: sHover }[name];
+  return wavB64(await f());
+};
+</script>

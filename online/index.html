@@ -3,110 +3,109 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<meta name="theme-color" content="#062221">
-<title>鱼虾蟹 · 在线试玩</title>
+<meta name="theme-color" content="#05070d">
+<title>鱼虾蟹 · 骰运星河</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="style.css">
-<link rel="stylesheet" href="online.css">
+<link rel="preload" href="/o/img/login-bg.webp" as="image">
+<link rel="preload" href="/audio/v2/login.mp3" as="fetch" crossorigin>
+<link rel="stylesheet" href="/o/app.css?v=5">
 </head>
 <body>
-<div id="sprite"></div>
 
-<!-- 启动页 -->
-<div id="splash">
-  <div class="splash-inner">
-    <div class="splash-dice">
-      <div class="mini-die"><svg viewBox="0 0 100 100"><use href="#s-carp"/></svg></div>
-      <div class="mini-die"><svg viewBox="0 0 100 100"><use href="#s-elephant"/></svg></div>
-      <div class="mini-die"><svg viewBox="0 0 100 100"><use href="#s-rabbit"/></svg></div>
+<!-- ============ 登录页（泰式佛寺 · 古金） ============ -->
+<section id="login" class="login">
+  <div class="login-bg"></div>
+  <canvas id="dust"></canvas>
+  <button id="loginMusic" class="music-btn gold" aria-label="音乐"><svg viewBox="0 0 24 24"><path d="M9 18V5l11-2v13" /><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg></button>
+  <div id="musicHint" class="music-hint" hidden>轻触任意处开启音乐</div>
+  <div class="login-inner">
+    <h1 class="t-title">鱼虾蟹</h1>
+    <div class="lotus">
+      <i class="ln l"></i>
+      <svg viewBox="0 0 120 70"><defs><linearGradient id="lg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f7dc95"/><stop offset=".55" stop-color="#c9923a"/><stop offset="1" stop-color="#7a4f16"/></linearGradient></defs>
+        <g fill="url(#lg)" stroke="#5a3a0f" stroke-width=".6">
+          <path d="M60 6 C68 20 68 38 60 52 C52 38 52 20 60 6Z"/>
+          <path d="M60 52 C48 44 40 30 41 16 C50 24 57 38 60 52Z"/><path d="M60 52 C72 44 80 30 79 16 C70 24 63 38 60 52Z"/>
+          <path d="M60 54 C42 52 28 42 24 30 C38 32 52 42 60 54Z"/><path d="M60 54 C78 52 92 42 96 30 C82 32 68 42 60 54Z"/>
+          <path d="M60 56 C44 58 26 54 16 46 C32 44 48 48 60 56Z"/><path d="M60 56 C76 58 94 54 104 46 C88 44 72 48 60 56Z"/>
+          <path d="M44 58 Q60 66 76 58 L72 63 Q60 68 48 63Z"/>
+        </g></svg>
+      <i class="ln r"></i>
     </div>
-    <h1 class="logo">鱼虾蟹</h1>
-    <div class="logo-sub">LUCKY DICE · 在线试玩</div>
-    <div class="loadbar" id="loadbarWrap"><i id="loadfill"></i></div>
-    <div id="loadtxt" class="loadtxt">连接服务器…</div>
-    <form id="authForm" class="auth" hidden autocomplete="on">
-      <div class="auth-tabs"><button type="button" class="on" data-m="login">登录</button><button type="button" data-m="register">注册</button></div>
-      <input id="fUser" name="username" placeholder="用户名（3-16位）" autocomplete="username" maxlength="16" required>
-      <input id="fPass" name="password" type="password" placeholder="密码（6-32位）" autocomplete="current-password" maxlength="32" required>
-      <input id="fPass2" type="password" placeholder="确认密码" autocomplete="new-password" maxlength="32" hidden>
-      <div class="auth-err" id="authErr"></div>
-      <button class="enter-btn" id="authBtn" type="submit">登录并进入</button>
-      <div class="auth-tip">新注册账号赠送 10,000 演示币</div>
+    <form id="authForm" class="t-panel" autocomplete="on">
+      <i class="cn tl"></i><i class="cn tr"></i><i class="cn bl"></i><i class="cn br"></i>
+      <div class="t-tabs"><button type="button" class="on" data-m="login">登录</button><span></span><button type="button" data-m="register">注册</button></div>
+      <label class="t-field"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><input id="fUser" name="username" placeholder="用户名" autocomplete="username" maxlength="16" required></label>
+      <label class="t-field"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><input id="fPass" name="password" type="password" placeholder="密码" autocomplete="current-password" maxlength="32" required><button type="button" class="eye" id="eye" aria-label="显示密码"><svg viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></label>
+      <label class="t-field" id="pass2Row" hidden><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><input id="fPass2" type="password" placeholder="确认密码" autocomplete="new-password" maxlength="32"></label>
+      <div class="t-err" id="authErr"></div>
+      <button class="t-btn" id="authBtn" type="submit"><span>登录并进入</span></button>
+      <div class="t-tip" id="authTip">新注册账号赠送 10,000 演示币 · 虚拟游戏币，不可充值或兑换</div>
     </form>
-    <div id="welcome" hidden>
-      <div class="loadtxt">欢迎回来，<b id="wName"></b></div>
-      <button id="enterBtn" class="enter-btn">点击进入游戏</button>
-      <div><button class="link-btn" id="switchUser" type="button">切换账号</button></div>
+    <div id="welcome" class="t-panel welcome" hidden>
+      <i class="cn tl"></i><i class="cn tr"></i><i class="cn bl"></i><i class="cn br"></i>
+      <div class="w-txt">欢迎回来 <b id="wName"></b></div>
+      <button class="t-btn" id="enterBtn" type="button"><span>进入大厅</span></button>
+      <button class="t-link" id="switchUser" type="button">切换账号</button>
     </div>
-    <div class="demo-note">仅限娱乐演示 · 虚拟游戏币 · 不可充值或兑换</div>
   </div>
-</div>
+</section>
 
-<div id="app">
-  <!-- 顶栏 -->
-  <header class="topbar">
-    <div class="me">
-      <div class="avatar"><svg viewBox="0 0 100 100"><use href="#s-avatar"/></svg><span class="lv">28</span></div>
-      <div class="me-info">
-        <div class="me-name" id="meName">玩家</div>
-        <div class="balance"><i class="coin"></i><span id="balance">10,000</span></div>
+<!-- ============ 大厅（科幻 HUD） ============ -->
+<section id="lobby" class="lobby" hidden>
+  <div class="hud-bg"></div>
+  <div class="wrap">
+    <header class="hud-top">
+      <div class="me">
+        <div class="ava"><svg viewBox="0 0 64 64"><defs><radialGradient id="hg" cx=".4" cy=".35" r=".7"><stop offset="0" stop-color="#9ff6ff"/><stop offset=".5" stop-color="#1e6f9a"/><stop offset="1" stop-color="#071a2a"/></radialGradient></defs><circle cx="32" cy="32" r="30" fill="#07141f"/><path d="M14 58c2-12 10-17 18-17s16 5 18 17z" fill="#c8d3df"/><circle cx="32" cy="27" r="15" fill="#e8eef5"/><ellipse cx="32" cy="28" rx="11" ry="9" fill="url(#hg)"/><path d="M24 24q8-6 16 0" stroke="#fff" stroke-width="2" fill="none" opacity=".6"/></svg><span class="lv">LV.28</span></div>
+        <div class="me-info"><div class="me-name" id="meName">玩家</div><div class="me-sub">★ <span id="round">第 - 回合</span></div></div>
       </div>
-    </div>
-    <div class="round-box">
-      <div class="round">第 <b id="roundNo">1</b> 回合</div>
-      <div class="round-timer" id="topTimer">00:15</div>
-    </div>
-    <div class="top-right">
-      <div class="online"><i class="dot"></i><div><small>在线玩家</small><b id="online">2,458</b></div></div>
-      <button id="musicBtn" class="icon-btn" aria-label="音乐">♪</button>
-    </div>
-  </header>
+      <div class="title-plate"><svg viewBox="0 0 24 24"><path d="M12 2 21 7v10l-9 5-9-5V7z"/><path d="M12 22V12M21 7l-9 5-9-5"/></svg><span>骰运星河 · 鱼虾蟹</span></div>
+      <div class="top-right">
+        <div class="bal"><i class="coin"></i><b id="balance">0</b></div>
+        <div class="online"><i class="dot"></i><span id="online">0</span> 在线</div>
+      </div>
+      <button id="lobbyMusic" class="music-btn cyan" aria-label="音乐"><svg viewBox="0 0 24 24"><path d="M9 18V5l11-2v13" /><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg></button>
+    </header>
 
-  <!-- 开奖舞台 -->
-  <section class="stage" id="stage">
-    <div class="rays" id="rays"></div>
-    <canvas id="fx"></canvas>
-    <div class="stage-head">
-      <div class="stage-title" id="stageTitle">请下注</div>
-      <div class="stage-timer" id="stageTimer">00:15</div>
-    </div>
-    <div class="dice-area" id="diceArea">
-      <div class="die-wrap" data-d="0"><div class="cube"></div><div class="shadow"></div></div>
-      <div class="die-wrap" data-d="1"><div class="cube"></div><div class="shadow"></div></div>
-      <div class="die-wrap" data-d="2"><div class="cube"></div><div class="shadow"></div></div>
-      <div class="ring" id="ring"></div>
-    </div>
-    <div class="flash" id="flash"></div>
-    <div class="banner" id="banner"></div>
-    <div class="result-pop" id="resultPop"></div>
-    <ul class="feed" id="feed"></ul>
-  </section>
+    <section class="stage" id="stage">
+      <div class="stage3d" id="stage3d"></div>
+      <div class="fallback" id="fallback" hidden><div class="fb-die"></div><div class="fb-die"></div><div class="fb-die"></div></div>
+      <aside class="feed-panel">
+        <div class="fp-head"><span>最新投注</span><i class="wave"></i></div>
+        <ul id="feed"></ul>
+      </aside>
+      <div class="cd">
+        <svg viewBox="0 0 120 120" class="cd-ring"><circle cx="60" cy="60" r="52" class="trk"/><circle cx="60" cy="60" r="52" class="bar" id="cdBar"/></svg>
+        <div class="cd-num" id="cdNum">00:15</div>
+      </div>
+      <div class="status"><i></i><span id="status">请下注</span><i></i></div>
+      <div class="banner" id="banner"></div>
+      <div class="result-pop" id="resultPop"></div>
+    </section>
 
-  <!-- 近期开奖 -->
-  <div class="history">
-    <span class="h-label">近期开奖</span>
-    <div class="h-list" id="history"></div>
+    <div class="history" id="historyBar"><span class="h-lbl">开奖走势</span><div class="h-list" id="history"></div></div>
+
+    <section class="board" id="board"></section>
+
+    <div class="chips" id="chips"></div>
+    <div class="actions">
+      <button class="act act-clear" id="btnClear"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>清空</button>
+      <button class="act act-repeat" id="btnRepeat"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-3-6.2M20 4v5h-5"/></svg>重复</button>
+      <button class="act act-ok" id="btnOk"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg>确认</button>
+    </div>
+    <nav class="bnav">
+      <button class="on"><svg viewBox="0 0 24 24"><path d="M12 2 21 7v10l-9 5-9-5V7z"/></svg>骰子投注</button>
+      <button id="navHist"><svg viewBox="0 0 24 24"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>开奖历史</button>
+      <button id="navFair"><svg viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>规则说明</button>
+      <button id="navMenu"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+    </nav>
   </div>
+</section>
 
-  <!-- 下注区 -->
-  <section class="board" id="board"></section>
-
-  <!-- 筹码 -->
-  <div class="chips" id="chips"></div>
-
-  <!-- 操作 -->
-  <div class="actions">
-    <button class="act act-clear" id="btnClear"><span>🗑</span>清空</button>
-    <button class="act act-repeat" id="btnRepeat"><span>⟳</span>重复</button>
-    <button class="act act-ok" id="btnOk"><span>✔</span>确认</button>
-  </div>
-  <div class="foot-note"><span id="conn" class="conn">●</span> 在线大厅 · 虚拟游戏币 · 1个中1赔1，2个中1赔2，3个中1赔3</div>
-</div>
-
+<div id="sheet" class="sheet" hidden><div class="sheet-box"><button class="sheet-x" id="sheetX">✕</button><div id="sheetBody"></div></div></div>
 <div id="toast"></div>
-
-<script src="symbols.js"></script>
-<script src="audio.js?v=2"></script>
-<script src="online.js"></script>
+<script src="/o/sound.js?v=5"></script>
+<script type="module" src="/o/app.js?v=5"></script>
 </body>
 </html>
