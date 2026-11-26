@@ -1,0 +1,27 @@
+{
+  "name": "yuxiaxie-h5",
+  "version": "1.0.0",
+  "description": "鱼虾蟹 H5 演示：Node + WebSocket 公共大厅（虚拟币）",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/facaizhilu/yuxiaxie-h5.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/facaizhilu/yuxiaxie-h5/issues"
+  },
+  "homepage": "https://github.com/facaizhilu/yuxiaxie-h5#readme",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "express": "^4.22.3",
+    "ws": "^8.23.0"
+  },
+  "private": true
+}

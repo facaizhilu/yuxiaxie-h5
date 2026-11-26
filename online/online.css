@@ -1,0 +1,12 @@
+.auth{display:flex;flex-direction:column;gap:10px;margin-top:6px;text-align:left}
+.auth-tabs{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:4px}
+.auth-tabs button{padding:10px 0;font-weight:800;color:var(--muted);background:rgba(0,0,0,.25)}
+.auth-tabs button.on{color:#3b2604;background:linear-gradient(180deg,#fff0b8,#f3c95c 60%,#c98a1c)}
+.auth input{height:46px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.35);color:var(--txt);padding:0 14px;font-size:16px;outline:none}
+.auth input:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(243,201,92,.2)}
+.auth .enter-btn{animation:none;margin-top:4px;width:100%}
+.auth-err{min-height:18px;color:#ff8a7a;font-size:13px}
+.auth-tip{font-size:12px;color:var(--muted);text-align:center}
+.link-btn{margin-top:12px;color:var(--muted);font-size:13px;text-decoration:underline}
+.me-name{cursor:pointer}
+.conn{color:#ff6a5a}.conn.ok{color:#3ee07a}

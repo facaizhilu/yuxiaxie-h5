@@ -10,3 +10,18 @@
 - 仅虚拟演示币（初始 10,000，用完自动补充），无任何充值、兑换或支付功能
 
 本地运行：`npx serve .` 或直接用任意静态服务器打开 `index.html`。
+
+## 在线版（Node + WebSocket 公共大厅）
+
+`server.js` + `online/`：注册 / 登录（bcrypt 加密密码）、服务端余额、服务端开奖与约 30 个机器人、WebSocket 广播所有下注与结果，所有人同一回合。仍然只用虚拟演示币。
+
+- 本地运行：`npm install && node server.js`（默认端口 8790，可用 `PORT` 覆盖），打开 `http://localhost:8790/`
+- 数据存放在 `data/db.json`（已在 .gitignore 中，不入库）
+- 固定测试账号：设置环境变量 `TEST_USER`（默认 test01）、`TEST_PASS`、`TEST_BALANCE`（默认 1000000），启动时自动创建
+- 也可手动设置：`node set-account.js <用户名> <密码> <余额>`（先停服务器）
+- 临时服务器：`./start-temp.sh`（后台启动 server，并尝试开 cloudflared 临时隧道；地址写入 `data/tunnel-url.txt`）
+
+### 部署到 Render（免费版）
+
+仓库根目录有 `render.yaml`。在 Render 控制台 New → Blueprint，选择本仓库，按提示填写 `TEST_PASS` 即可，推送到 main 会自动部署。
+免费版磁盘是临时的：重新部署或休眠重启后注册的账号与余额会重置，test01 会按环境变量自动重建为 1,000,000。免费实例闲置约 15 分钟会休眠，首次打开需等待约 30-60 秒。
