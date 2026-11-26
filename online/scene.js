@@ -5,8 +5,8 @@ import { RoomEnvironment } from './vendor/RoomEnvironment.js';
 
 const FLOOR = 0.35, HALF = 0.45, REST = FLOOR + HALF, R_WALL = 1.18;
 const SLOTS = [new THREE.Vector3(-0.66, REST, 0.32), new THREE.Vector3(0.66, REST, 0.32), new THREE.Vector3(0, REST, -0.5)];
-const SHOWP = [new THREE.Vector3(-0.6, 1.5, 0.3), new THREE.Vector3(0.6, 1.5, 0.3), new THREE.Vector3(0, 2.25, -0.1)];
-const FLOAT = [new THREE.Vector3(-0.78, 1.55, 0.25), new THREE.Vector3(0.78, 1.55, 0.25), new THREE.Vector3(0, 2.35, -0.15)];
+const SHOWP = [new THREE.Vector3(-0.6, 1.5, 0.3), new THREE.Vector3(0.6, 1.5, 0.3), new THREE.Vector3(0, 2.12, -0.1)];
+const FLOAT = [new THREE.Vector3(-0.78, 1.55, 0.25), new THREE.Vector3(0.78, 1.55, 0.25), new THREE.Vector3(0, 2.2, -0.15)];
 const LAYOUTS = [[0, 1, 2, 3, 4, 5], [2, 4, 0, 5, 1, 3], [5, 3, 1, 0, 2, 4]];
 const STYLES = [
   { base: ['#f4f6fa', '#9aa3b2'], rim: '#7fe9ff', medal: ['#1b2633', '#0a1018'], metal: 0.75, rough: 0.28 },
@@ -68,6 +68,7 @@ export async function createStage(host, imgs, hooks = {}) {
   const renderer = new THREE.WebGLRenderer({ antialias: (window.devicePixelRatio || 1) < 2, alpha: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
   renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.15;
+  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   host.appendChild(renderer.domElement);
   const scene = new THREE.Scene();
   const pm = new THREE.PMREMGenerator(renderer); scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture; pm.dispose();
@@ -77,7 +78,7 @@ export async function createStage(host, imgs, hooks = {}) {
   camera.position.copy(camPos);
 
   scene.add(new THREE.AmbientLight(0x406080, 0.6));
-  const key = new THREE.DirectionalLight(0xffffff, 1.6); key.position.set(3, 6, 5); scene.add(key);
+  const key = new THREE.DirectionalLight(0xffffff, 1.6); key.position.set(3, 6, 5); key.castShadow = true; key.shadow.mapSize.set(1024, 1024); key.shadow.camera.left = -3.2; key.shadow.camera.right = 3.2; key.shadow.camera.top = 3.2; key.shadow.camera.bottom = -3.2; key.shadow.camera.near = 2; key.shadow.camera.far = 16; key.shadow.bias = -0.0006; key.shadow.radius = 4; scene.add(key);
   const rim = new THREE.DirectionalLight(0xffc870, 1.2); rim.position.set(-4, 3, -3); scene.add(rim);
   const core = new THREE.PointLight(0x47e5ff, 6, 6, 1.6); core.position.set(0, 1.2, 0.6); scene.add(core);
   const flash = new THREE.PointLight(0xfff0c0, 0, 8, 1.5); flash.position.set(0, 1.4, 1); scene.add(flash);
@@ -89,7 +90,7 @@ export async function createStage(host, imgs, hooks = {}) {
   // 底座
   const metal = new THREE.MeshStandardMaterial({ color: 0x1a2533, metalness: 0.9, roughness: 0.35 });
   const base = new THREE.Mesh(new THREE.CylinderGeometry(2.05, 2.25, 0.35, 72), metal); base.position.y = FLOOR / 2; scene.add(base);
-  const top = new THREE.Mesh(new THREE.CylinderGeometry(1.78, 1.78, 0.02, 72), new THREE.MeshStandardMaterial({ color: 0x0b1622, metalness: 0.6, roughness: 0.2, emissive: 0x0a3a50, emissiveIntensity: 0.6 })); top.position.y = FLOOR + 0.005; scene.add(top);
+  const top = new THREE.Mesh(new THREE.CylinderGeometry(1.78, 1.78, 0.02, 72), new THREE.MeshStandardMaterial({ color: 0x0b1622, metalness: 0.6, roughness: 0.2, emissive: 0x0a3a50, emissiveIntensity: 0.6 })); top.position.y = FLOOR + 0.005; top.receiveShadow = true; scene.add(top);
   const glow = (c) => new THREE.MeshBasicMaterial({ color: c, toneMapped: false });
   const ringC = new THREE.Mesh(new THREE.TorusGeometry(1.95, 0.035, 12, 120), glow(0x5ff3ff)); ringC.rotation.x = Math.PI / 2; ringC.position.y = FLOOR + 0.01; scene.add(ringC);
   const ringG = new THREE.Mesh(new THREE.TorusGeometry(2.3, 0.03, 10, 120, Math.PI * 1.1), glow(0xffc35a)); ringG.rotation.x = Math.PI / 2; ringG.rotation.z = Math.PI * 1.05; ringG.position.y = 0.05; scene.add(ringG);
@@ -132,7 +133,7 @@ export async function createStage(host, imgs, hooks = {}) {
   const geo = new RoundedBoxGeometry(HALF * 2, HALF * 2, HALF * 2, 5, 0.12);
   const dice = STYLES.map((st, d) => {
     const mats = LAYOUTS[d].map((sym) => new THREE.MeshStandardMaterial({ map: faceTexture(imgs[sym], st, aniso), metalness: st.metal, roughness: st.rough, envMapIntensity: 1.1, emissive: 0x000000 }));
-    const mesh = new THREE.Mesh(geo, mats); scene.add(mesh);
+    const mesh = new THREE.Mesh(geo, mats); mesh.castShadow = true; scene.add(mesh);
     const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })); halo.scale.set(2.2, 2.2, 1); scene.add(halo);
     const blob = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 1.3), new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false })); blob.rotation.x = -Math.PI / 2; blob.position.y = FLOOR + 0.02; scene.add(blob);
     return { mesh, mats, halo, blob, p: FLOAT[d].clone(), v: new THREE.Vector3(), q: new THREE.Quaternion(), w: new THREE.Vector3(), sym: d, lastHit: 0 };
@@ -148,30 +149,33 @@ export async function createStage(host, imgs, hooks = {}) {
   }
   window.addEventListener('resize', resize); resize();
 
-  const camDir = () => camera.position.clone().sub(new THREE.Vector3(0, 1.6, 0)).normalize();
-  const WUP = new THREE.Vector3(0, 1, 0);
+  // ---------- 预分配临时对象（循环内零分配） ----------
+  const WUP = new THREE.Vector3(0, 1, 0), LOOKC = new THREE.Vector3(0, 1.6, 0);
+  const tmpV = new THREE.Vector3(), tmpQ = new THREE.Quaternion(), tmpQ2 = new THREE.Quaternion(), tmpE = new THREE.Euler();
   const faceOf = (d, sym) => LAYOUTS[d].indexOf(sym);
-  let mode = 'idle', t0 = performance.now(), result = [0, 1, 2], shake = 0, power = 0.55, landed = false;
-  const tq = [new THREE.Quaternion(), new THREE.Quaternion(), new THREE.Quaternion()];
+  const AXES = [new THREE.Vector3(1, 0.32, 0.1), new THREE.Vector3(1, -0.38, 0.18), new THREE.Vector3(0.92, 0.22, -0.3)].map((v) => v.normalize());
+  dice.forEach((d, i) => { d.fin = new THREE.Quaternion(); d.qs = new THREE.Quaternion(); d.q0 = new THREE.Quaternion(); d.p0 = new THREE.Vector3(); d.axis = AXES[i]; d.Th = Math.PI * 2 * (4 + i * 0.9); d.glow = 0; d.pulse = 0; d.pass = -1; d.n = 0; d.stopped = false; d.stopT = 0; });
+  let mode = 'idle', t0 = performance.now(), result = [0, 1, 2], shake = 0, power = 0.55;
   const setResult = (r) => { result = r.slice(); };
+  function setFin(camP) { tmpV.copy(camP).sub(LOOKC).normalize(); dice.forEach((d, i) => d.fin.copy(orient(faceOf(i, result[i]), tmpV, WUP))); }
+  const setEmi = (d, r, g, b) => { for (let k = 0; k < 6; k++) d.mats[k].emissive.setRGB(r, g, b); };
   function showIdle(r) {
-    setResult(r); mode = 'idle'; t0 = performance.now(); camTarget.copy(CAM.base); power = 0.55;
-    dice.forEach((d, i) => { d.p.copy(FLOAT[i]); d.q.copy(orient(faceOf(i, result[i]), camDir(), WUP)); d.halo.material.opacity = 0; });
+    setResult(r); mode = 'idle'; t0 = performance.now(); camTarget.copy(CAM.base); power = 0.55; setFin(CAM.base);
+    dice.forEach((d, i) => { d.p.copy(FLOAT[i]); d.q.copy(d.fin); d.halo.material.opacity = 0; d.mesh.scale.setScalar(1); setEmi(d, 0, 0, 0); });
   }
   function lock() { mode = 'lock'; t0 = performance.now(); power = 1; camTarget.lerpVectors(CAM.base, CAM.roll, 0.35);
-    dice.forEach((d, i) => { d.w.set((Math.random() - 0.5) * 22, (Math.random() - 0.5) * 22, (Math.random() - 0.5) * 22); d.halo.material.opacity = 0; }); }
+    dice.forEach((d) => { d.w.set((Math.random() - 0.5) * 22, (Math.random() - 0.5) * 22, (Math.random() - 0.5) * 22); d.halo.material.opacity = 0; }); }
+  // 老虎机式开奖：三颗 3D 骰子原地沿倾斜轴高速翻转（图案快速掠过 + 每过一面“咚”一下），逐颗减速定格
+  const STOP = [1.9, 2.85, 3.8];
   function roll(r) {
-    setResult(r); mode = 'roll'; t0 = performance.now(); landed = false; power = 1.3; camTarget.copy(CAM.roll);
-    dice.forEach((d, i) => {
-      d.p.set((i - 1) * 0.5, 1.9 + i * 0.25, -0.2 + Math.random() * 0.3);
-      d.v.set((Math.random() - 0.5) * 4.2, 2.5 + Math.random() * 1.5, (Math.random() - 0.5) * 3.2);
-      d.w.set((Math.random() - 0.5) * 26, (Math.random() - 0.5) * 26, (Math.random() - 0.5) * 26);
-      tq[i].copy(orient(faceOf(i, result[i]), WUP, new THREE.Vector3(0, 0, -1))).premultiply(new THREE.Quaternion().setFromAxisAngle(WUP, (Math.random() - 0.5) * 0.5));
-    });
+    setResult(r); mode = 'roll'; t0 = performance.now(); power = 1.4; camTarget.copy(CAM.roll); setFin(CAM.roll);
+    dice.forEach((d) => { d.qs.copy(d.q); d.pass = -1; d.n = 0; d.glow = 0.6; d.pulse = 0; d.stopped = false; d.stopT = 0; d.halo.material.opacity = 0; });
   }
   function reveal(r) {
     if (r) setResult(r);
-    if (mode !== 'roll') dice.forEach((d, i) => { d.p.copy(SLOTS[i]); tq[i].copy(orient(faceOf(i, result[i]), WUP, new THREE.Vector3(0, 0, -1))); d.q.copy(tq[i]); });
+    setFin(CAM.show);
+    if (mode !== 'roll') dice.forEach((d, i) => { d.p.copy(FLOAT[i]); d.q.copy(d.fin); });
+    dice.forEach((d) => { d.p0.copy(d.p); d.q0.copy(d.q); d.pulse = 0; });
     mode = 'show'; t0 = performance.now(); camTarget.copy(CAM.show); power = 0.9;
   }
   function landFx() {
@@ -179,82 +183,94 @@ export async function createStage(host, imgs, hooks = {}) {
     if (hooks.onLand) hooks.onLand();
   }
 
-  const tmpQ = new THREE.Quaternion(), clock = new THREE.Clock();
+  const clock = new THREE.Clock(), HP = Math.PI / 2;
   let running = true;
   function step(dt) {
     const now = performance.now(), t = (now - t0) / 1000, time = now / 1000;
+    const kf = 1 - Math.exp(-dt * 5);
     glassU.time.value = time; beamU.time.value = time;
-    glassU.power.value += (power - glassU.power.value) * 0.05; beamU.power.value = glassU.power.value;
+    glassU.power.value += (power - glassU.power.value) * (1 - Math.exp(-dt * 3)); beamU.power.value = glassU.power.value;
     core.intensity = 4 + glassU.power.value * 5;
     ringG.rotation.z += dt * 0.25; ringC2.rotation.z -= dt * 0.4;
-    for (let i = 0; i < PN; i++) { pPos[i * 3 + 1] += pSpd[i] * dt * (0.6 + glassU.power.value); if (pPos[i * 3 + 1] > FLOOR + 3.2) pPos[i * 3 + 1] = FLOOR; }
+    const pk = dt * (0.6 + glassU.power.value);
+    for (let i = 0; i < PN; i++) { let y = pPos[i * 3 + 1] + pSpd[i] * pk; if (y > FLOOR + 3.2) y = FLOOR; pPos[i * 3 + 1] = y; }
     pGeo.attributes.position.needsUpdate = true;
-    flash.intensity *= 0.9;
+    flash.intensity *= Math.exp(-dt * 6);
     if (shock.material.opacity > 0) { shock.scale.multiplyScalar(1 + dt * 3.2); shock.material.opacity = Math.max(0, shock.material.opacity - dt * 1.4); }
     if (shock2.material.opacity > 0) { shock2.scale.multiplyScalar(1 + dt * 2.4); shock2.material.opacity = Math.max(0, shock2.material.opacity - dt * 1.1); }
+    const decG = Math.exp(-dt * 7), decP = Math.exp(-dt * 9);
 
-    dice.forEach((d, i) => {
+    for (let i = 0; i < 3; i++) {
+      const d = dice[i], F = FLOAT[i];
       if (mode === 'idle') {
-        const tgt = FLOAT[i]; d.p.lerp(new THREE.Vector3(tgt.x, tgt.y + Math.sin(time * 1.4 + i * 2) * 0.08, tgt.z), 0.08);
-        const base = orient(faceOf(i, result[i]), camDir(), WUP);
-        tmpQ.setFromEuler(new THREE.Euler(Math.sin(time * 0.9 + i) * 0.12, Math.sin(time * 0.7 + i * 1.7) * 0.22, Math.sin(time * 0.8 + i) * 0.06));
-        d.q.slerp(base.multiply(tmpQ), 0.08);
+        d.p.x += (F.x - d.p.x) * kf; d.p.y += (F.y + Math.sin(time * 1.4 + i * 2) * 0.08 - d.p.y) * kf; d.p.z += (F.z - d.p.z) * kf;
+        tmpQ2.copy(d.fin).multiply(tmpQ.setFromEuler(tmpE.set(Math.sin(time * 0.9 + i) * 0.12, Math.sin(time * 0.7 + i * 1.7) * 0.22, Math.sin(time * 0.8 + i) * 0.06)));
+        d.q.slerp(tmpQ2, kf);
       } else if (mode === 'lock') {
-        const tgt = new THREE.Vector3(FLOAT[i].x * 0.7, 1.85 + i * 0.12, FLOAT[i].z * 0.7);
-        d.p.lerp(tgt, 0.08); d.p.x += (Math.random() - 0.5) * 0.04; d.p.y += (Math.random() - 0.5) * 0.04;
-        const s = Math.min(1, t / 1.2); spin(d, dt * (0.4 + s));
+        d.p.x += (F.x * 0.7 - d.p.x) * kf; d.p.y += (1.85 + i * 0.12 - d.p.y) * kf; d.p.z += (F.z * 0.7 - d.p.z) * kf;
+        d.p.x += (Math.random() - 0.5) * 0.03; d.p.y += (Math.random() - 0.5) * 0.03;
+        spin(d, dt * (0.4 + Math.min(1, t / 1.2)) );
       } else if (mode === 'roll') {
-        const tl = Math.min(t, 2.6);
-        if (tl < 2.0) physics(d, i, dt);
-        else { spin(d, dt * 0.6); }
-        const e = ease((tl - 1.55) / 0.95);
-        if (e > 0) {
-          const hop = tl > 2.15 ? Math.max(0, 0.75 * (1 - Math.pow((tl - 2.38) / 0.22, 2))) : 0;
-          const tgt = SLOTS[i].clone(); tgt.y += hop;
-          d.p.lerp(tgt, e); d.q.slerp(tq[i], e);
+        let th = 0;
+        if (!d.stopped) {
+          if (t >= STOP[i]) {
+            d.stopped = true; d.stopT = t; d.glow = 2; d.pulse = 1.6;
+            shake = Math.max(shake, 0.6); flash.intensity = Math.max(flash.intensity, 14);
+            shock.scale.setScalar(0.25); shock.material.opacity = 0.7;
+            if (hooks.onStop) hooks.onStop(i, (i - 1) * 0.6);
+            if (i === 2) landFx();
+          } else {
+            const pp = t / STOP[i]; th = d.Th * (1 - pp) * (1 - pp);
+            const pass = Math.floor(th / HP);
+            if (pass !== d.pass) { if (d.pass >= 0) { d.glow = 1; d.pulse = 0.8; d.n++; if (hooks.onCycle) hooks.onCycle(i, d.n); } d.pass = pass; }
+          }
         }
-        if (t >= 2.6 && !landed) { landed = true; dice.forEach((dd, k) => { dd.p.copy(SLOTS[k]); dd.q.copy(tq[k]); }); landFx(); }
-        if (t > 2.6) { const k = t - 2.6, wob = Math.exp(-k * 6) * Math.sin(k * 30) * 0.06; d.p.copy(SLOTS[i]); d.q.copy(tq[i]).multiply(tmpQ.setFromEuler(new THREE.Euler(wob, 0, wob * 0.6))); }
+        let sq = 0;
+        if (d.stopped) { const k = t - d.stopT, e = Math.exp(-k * 7.5); th = 0.16 * e * Math.sin(k * 28); sq = e * Math.cos(k * 26); }
+        tmpQ.setFromAxisAngle(d.axis, th); d.q.copy(tmpQ).multiply(d.fin);
+        const bl = ease(t / 0.2); if (bl < 1) d.q.slerpQuaternions(d.qs, tmpQ2.copy(d.q), bl);
+        d.p.x += (F.x - d.p.x) * kf; d.p.y += (F.y - 0.2 * sq - d.p.y) * Math.min(1, kf * 3); d.p.z += (F.z - d.p.z) * kf;
+        d.glow *= decG; d.pulse *= decP;
+        const g = d.glow, gold = d.stopped ? 1 : 0;
+        setEmi(d, 0.1 * g + 0.25 * gold * g, 0.12 * g + 0.17 * gold * g, 0.16 * g);
+        d.halo.material.opacity = Math.min(0.9, 0.1 * g + (d.stopped ? 0.45 : 0));
+        d.mesh.scale.setScalar(1 + 0.12 * d.pulse - 0.1 * sq * (d.stopped ? 1 : 0));
       } else if (mode === 'show') {
         const e = ease((t - 0.35) / 0.9);
-        const from = SLOTS[i], to = SHOWP[i];
-        d.p.lerpVectors(from, to, e); d.p.y += Math.sin(time * 1.6 + i * 2) * 0.05 * e;
-        const fq = orient(faceOf(i, result[i]), camDir(), WUP);
-        d.q.slerpQuaternions(tq[i], fq, e);
+        d.mesh.scale.setScalar(1 + 0.1 * (1 - e));
+        d.p.lerpVectors(d.p0, SHOWP[i], e); d.p.y += Math.sin(time * 1.6 + i * 2) * 0.05 * e;
+        d.q.slerpQuaternions(d.q0, d.fin, e);
         d.halo.material.opacity = 0.85 * e * (0.8 + 0.2 * Math.sin(time * 5 + i));
-        d.mats.forEach((m) => m.emissive.setRGB(0.12 * e, 0.08 * e, 0.02 * e));
+        setEmi(d, 0.12 * e, 0.08 * e, 0.02 * e);
       }
-      if (mode !== 'show') d.mats.forEach((m) => m.emissive.setRGB(0, 0, 0));
       d.mesh.position.copy(d.p); d.mesh.quaternion.copy(d.q);
-      d.halo.position.copy(d.p).add(new THREE.Vector3(0, 0, -0.35));
-      const hgt = Math.max(0, d.p.y - REST); d.blob.position.set(d.p.x, FLOOR + 0.02, d.p.z); d.blob.material.opacity = Math.max(0.15, 0.85 - hgt * 0.35); d.blob.scale.setScalar(1 + hgt * 0.35);
-    });
+      d.halo.position.set(d.p.x, d.p.y, d.p.z - 0.35);
+      const hgt = Math.max(0, d.p.y - REST); d.blob.position.set(d.p.x, FLOOR + 0.02, d.p.z); d.blob.material.opacity = Math.max(0.12, 0.6 - hgt * 0.25); d.blob.scale.setScalar(1 + hgt * 0.35);
+    }
 
-    camPos.lerp(camTarget, 0.045);
+    camPos.lerp(camTarget, 1 - Math.exp(-dt * 2.6));
     camera.position.copy(camPos);
-    if (shake > 0.001) { camera.position.x += (Math.random() - 0.5) * 0.18 * shake; camera.position.y += (Math.random() - 0.5) * 0.12 * shake; shake *= 0.88; }
+    // 轻微镜头环绕呼吸，增强纵深；开奖时更明显
+    const sw = mode === 'roll' ? 0.38 : 0.16;
+    camera.position.x += Math.sin(time * 0.8) * sw; camera.position.y += Math.sin(time * 0.6 + 1) * sw * 0.35;
+    if (shake > 0.001) { camera.position.x += (Math.random() - 0.5) * 0.18 * shake; camera.position.y += (Math.random() - 0.5) * 0.12 * shake; shake *= Math.exp(-dt * 7); }
     camera.lookAt(look);
   }
-  function spin(d, k) { const ang = d.w.length() * k; if (ang > 0) { tmpQ.setFromAxisAngle(d.w.clone().normalize(), ang); d.q.premultiply(tmpQ).normalize(); } }
-  function physics(d, i, dt) {
-    const sub = 3, h = dt / sub;
-    for (let s = 0; s < sub; s++) {
-      d.v.y -= 15 * h; d.p.addScaledVector(d.v, h);
-      if (d.p.y < REST + 0.07) {
-        d.p.y = REST + 0.07; const imp = Math.abs(d.v.y);
-        if (d.v.y < 0) { d.v.y = -d.v.y * 0.48; d.v.x *= 0.78; d.v.z *= 0.78; d.w.multiplyScalar(0.72); d.w.x += (Math.random() - 0.5) * 6; d.w.z += (Math.random() - 0.5) * 6; }
-        const now = performance.now(); if (imp > 1.2 && now - d.lastHit > 120 && hooks.onHit) { d.lastHit = now; hooks.onHit(Math.min(1, imp / 7), d.p.x / 2); }
-      }
-      const rr = Math.hypot(d.p.x, d.p.z);
-      if (rr > R_WALL) { const nx = d.p.x / rr, nz = d.p.z / rr, vn = d.v.x * nx + d.v.z * nz; if (vn > 0) { d.v.x -= 1.6 * vn * nx; d.v.z -= 1.6 * vn * nz; } d.p.x = nx * R_WALL; d.p.z = nz * R_WALL; }
-      dice.forEach((o, j) => { if (j <= i) return; const dv = o.p.clone().sub(d.p), dist = dv.length(); if (dist < 1.0 && dist > 0.001) { dv.divideScalar(dist); const push = (1.0 - dist) / 2; d.p.addScaledVector(dv, -push); o.p.addScaledVector(dv, push); const rel = o.v.clone().sub(d.v).dot(dv); if (rel < 0) { d.v.addScaledVector(dv, rel * 0.9); o.v.addScaledVector(dv, -rel * 0.9); } } });
-    }
-    spin(d, dt);
-  }
+  function spin(d, k) { const ang = d.w.length() * k; if (ang > 0) { tmpV.copy(d.w).normalize(); tmpQ.setFromAxisAngle(tmpV, ang); d.q.premultiply(tmpQ).normalize(); } }
+
+  // 自适应分辨率：连续掉帧时降低像素比，保证流畅
+  let curPR = Math.min(window.devicePixelRatio || 1, 1.6), ema = 1 / 60, slow = 0;
   function loop() {
     if (!running) return; requestAnimationFrame(loop);
-    const dt = Math.min(0.05, clock.getDelta()); step(dt); renderer.render(scene, camera);
+    const raw = clock.getDelta(), dt = Math.min(0.05, raw);
+    ema += (raw - ema) * 0.05;
+    if (ema > 1 / 42) { slow += raw; if (slow > 1.2 && curPR > 1) { curPR = Math.max(1, curPR - 0.25); renderer.setPixelRatio(curPR); renderer.setSize(W, H, false); slow = 0; ema = 1 / 60; } } else slow = 0;
+    step(dt); renderer.render(scene, camera);
   }
+  // 预热：提前上传全部纹理并编译着色器，开奖时不会卡顿
+  dice.forEach((d) => d.mats.forEach((m) => renderer.initTexture(m.map)));
+  [haloTex, blobTex].forEach((t) => renderer.initTexture(t));
+  renderer.compile(scene, camera);
   showIdle([0, 1, 2]); loop();
   document.addEventListener('visibilitychange', () => { if (!document.hidden) clock.getDelta(); });
   return { showIdle, lock, roll, reveal, resize };

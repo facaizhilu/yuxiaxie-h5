@@ -256,3 +256,31 @@ svg{display:block}
 .board{grid-template-columns:repeat(3,minmax(0,1fr))}
 @media (min-width:1000px){.lobby .wrap{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr)}.chips{padding:3px 0}}
 .ped .badge{left:auto;right:9%;margin-left:0}
+
+/* ===== v4：防缩放 + 倒计时时钟图标 ===== */
+html,body{touch-action:manipulation;-webkit-text-size-adjust:100%;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+button,.ped,.chip,.act,.bnav button,.history{touch-action:manipulation}
+input{-webkit-user-select:text;user-select:text;font-size:16px!important}
+.cd-clk{position:absolute;left:50%;top:21px;width:15px;height:15px;margin-left:-7.5px;fill:none;stroke:var(--cy);stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 3px var(--cy))}
+.cd-num{padding-top:15px}
+.cd.urgent .cd-clk{stroke:#ff8f9b;filter:drop-shadow(0 0 4px #ff5a6a);animation:pulse .5s infinite}
+.cd.gold .cd-clk{stroke:var(--gd);filter:drop-shadow(0 0 3px var(--gd))}
+
+/* ===== v4 流畅度：只用 transform/opacity 做动画，去掉昂贵的 backdrop-filter / 动画 filter ===== */
+.feed-panel{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background:linear-gradient(180deg,rgba(8,30,48,.9),rgba(4,14,26,.92))}
+.t-panel{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+.login-bg{will-change:transform}
+.ped{transition:transform .2s cubic-bezier(.2,.8,.2,1);will-change:transform;backface-visibility:hidden}
+.ped.win{animation:none;filter:drop-shadow(0 0 12px #ffd36a) drop-shadow(0 8px 10px rgba(0,0,0,.6))}
+.ped .frame::after{content:"";position:absolute;inset:0;background:#fff3c0;opacity:0}
+.ped.win .frame::after{animation:wpulse .9s ease-in-out infinite}
+@keyframes wpulse{50%{opacity:.55}}
+.chip{transition:transform .2s cubic-bezier(.2,.8,.2,1);will-change:transform}
+.chip.sel::before{will-change:transform}
+.cd-ring .bar{transition:none}
+.cd{will-change:transform,opacity}
+.act{will-change:transform}
+.ped .badge,.ped .pool,.banner,.result-pop{will-change:transform,opacity}
+.ped.dim{transition:opacity .4s;opacity:.55;filter:none}
+.ped.dim .inner{filter:grayscale(.8) brightness(.5)}
+@media (hover:hover){.ped:hover{filter:none}}

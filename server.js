@@ -15,7 +15,7 @@ const DB_FILE = path.join(DATA_DIR, 'db.json');
 const START_BAL = 10000;
 const CHIPS = [10, 50, 100, 500, 1000];
 const MAX_BET_PER_ROUND = 1000000;
-const T = { bet: 15000, lock: 1500, roll: 3300, show: 5000 };
+const T = { bet: 20000, lock: 1500, roll: 4500, show: 5000 };
 const SYM_NAMES = ['大象', '兔子', '红鲤鱼', '虾', '孔雀', '马'];
 const ROBOTS = ['阿强', '小美', 'LuckyKing', '金龙', 'Somchai', '财神到', '海风', '老王', 'Noy', '阿杰', '发财哥', 'Mali', '小鱼儿',
   'Bounmy', '星辰', 'Kham', '大头', 'Lina', '阿福', 'Tony88', '旺旺', 'Vong', '锦鲤附体', 'Ploy', '一路发', 'Sengdao', '豹子头', 'Ken', '好运来', 'Nana'];
@@ -117,12 +117,26 @@ app.post('/api/logout', (req, res) => {
 app.get('/healthz', (_req, res) => res.json({ ok: true, round: game.round, phase: game.phase }));
 
 // 只对外提供前端文件（不暴露 data/ 与服务端代码）
-const sendFile = (f) => (_req, res) => res.sendFile(path.join(__dirname, f));
-app.get('/', sendFile('online/index.html'));
-app.get('/online.js', sendFile('online/online.js'));
-app.get('/online.css', sendFile('online/online.css'));
-['style.css', 'symbols.js', 'audio.js'].forEach((f) => app.get('/' + f, sendFile(f)));
-app.use('/o', express.static(path.join(__dirname, 'online'), { maxAge: '1h', index: false, setHeaders: (res, f) => { if (/\.(webp|woff2|mp3)$|vendor/.test(f)) res.setHeader('Cache-Control', 'public, max-age=604800'); } }));
+// 版本号：优先用 Render 的提交号，否则对前端文件内容做哈希；index 永不缓存，资源 URL 带 ?v=版本
+const crypto2 = require('crypto');
+const OL = path.join(__dirname, 'online');
+const BUILD = (() => {
+  if (process.env.RENDER_GIT_COMMIT) return process.env.RENDER_GIT_COMMIT.slice(0, 8);
+  const h = crypto2.createHash('md5');
+  ['index.html', 'app.js', 'app.css', 'scene.js', 'sound.js'].forEach((f) => { try { h.update(fs.readFileSync(path.join(OL, f))); } catch (_) {} });
+  return h.digest('hex').slice(0, 8);
+})();
+const noStore = (res) => res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+const INDEX_HTML = fs.readFileSync(path.join(OL, 'index.html'), 'utf8').replace(/__V__/g, BUILD);
+app.get('/', (_req, res) => { noStore(res); res.type('html').send(INDEX_HTML); });
+app.get('/version', (_req, res) => { noStore(res); res.json({ v: BUILD }); });
+// 旧版客户端（被手机缓存的旧页面）会请求这个文件：返回一个“强制刷新”脚本
+app.get('/online.js', (_req, res) => { noStore(res); res.type('js').send("(function(){var k='yxx_old_reload';if(sessionStorage.getItem(k))return;sessionStorage.setItem(k,'1');fetch('/',{cache:'reload'}).finally(function(){location.replace('/?r='+Date.now());});})();"); });
+['online.css', 'style.css', 'symbols.js', 'audio.js'].forEach((f) => app.get('/' + f, (_req, res) => { noStore(res); res.sendFile(path.join(__dirname, f === 'online.css' ? 'online/online.css' : f)); }));
+app.use('/o', express.static(OL, { maxAge: 0, index: false, setHeaders: (res, f) => {
+  if (/\.(webp|woff2)$/.test(f) || /vendor/.test(f)) res.setHeader('Cache-Control', 'public, max-age=86400');
+  else res.setHeader('Cache-Control', 'no-cache');
+} }));
 app.use('/audio', express.static(path.join(__dirname, 'audio'), { maxAge: '7d', index: false }));
 
 const server = http.createServer(app);

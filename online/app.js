@@ -25,8 +25,30 @@ let token = localStorage.getItem('yxx_token') || '';
 let ws, sending = false, entered = false, stage = null, stageP = null;
 
 // 预取 3D 模块与图片
-const scenePromise = import('./scene.js?v=6').catch((e) => { console.warn('scene load failed', e); return null; });
+const scenePromise = import('./scene.js?v='+(window.__V||'0')).catch((e) => { console.warn('scene load failed', e); return null; });
 const imgsPromise = Promise.all(SYMS.map((_, i) => new Promise((res) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(im); im.src = IMG(i); })));
+
+// ================= 防 iOS 缩放 / 版本检查 =================
+['gesturestart', 'gesturechange', 'gestureend'].forEach((ev) => document.addEventListener(ev, (e) => e.preventDefault(), { passive: false }));
+document.addEventListener('dblclick', (e) => e.preventDefault(), { passive: false });
+let lastTouchEnd = 0;
+document.addEventListener('touchend', (e) => {
+  const now = Date.now();
+  if (now - lastTouchEnd < 350 && !(e.target.closest && e.target.closest('input,textarea'))) e.preventDefault();
+  lastTouchEnd = now;
+}, { passive: false });
+document.addEventListener('touchmove', (e) => { if (e.touches.length > 1 || (e.scale && e.scale !== 1)) e.preventDefault(); }, { passive: false });
+async function checkVersion() {
+  try {
+    const r = await fetch('/version', { cache: 'no-store' }); const j = await r.json();
+    if (window.__V && j.v && j.v !== window.__V) {
+      if (sessionStorage.getItem('yxx_ver') === j.v) return;       // 只重载一次，避免死循环
+      sessionStorage.setItem('yxx_ver', j.v); location.replace('/?v=' + j.v);
+    }
+  } catch (_) {}
+}
+checkVersion();
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkVersion(); });
 
 // ================= 音乐（登录即播放） =================
 function syncMusicIcons() {
@@ -209,6 +231,8 @@ async function ensureStage() {
       if (!mod) throw new Error('no module');
       return await mod.createStage($('#stage3d'), imgs, {
         onHit: (s, pan) => SND.hit(s, pan),
+        onCycle: (i, k) => SND.cycle(i, k),
+        onStop: (i, pan) => { SND.stop(i, pan); if (navigator.vibrate) navigator.vibrate(18); },
         onLand: () => { SND.land(); if (navigator.vibrate) navigator.vibrate([20, 30, 20]); },
       });
     } catch (e) { console.warn('WebGL unavailable, fallback', e); return fallbackStage(); }
@@ -321,22 +345,26 @@ function connect() {
   ws.onclose = () => { sending = false; if (!token || !entered) return; setTimeout(connect, Math.min(5000, 500 * 2 ** retry++)); };
 }
 
-// 倒计时环
+// 倒计时环（rAF 驱动，只在数值变化时写 DOM）
 const CIRC = 326.7;
+let lastTxt = '', lastOff = '', lastUrg = null, lastGold = null, lastHide = null;
+const cdEl = document.querySelector('.cd'), cdNum = $('#cdNum'), cdBar = $('#cdBar');
 function tick() {
+  requestAnimationFrame(tick);
   if (!entered) return;
   const now = Date.now() + S.offset, left = Math.max(0, S.endAt - now);
-  const dur = S.T && S.T[S.phase] ? S.T[S.phase] : (S.phase === 'bet' ? 15000 : 5000);
-  const cd = $('#cd') || document.querySelector('.cd');
-  const s = Math.ceil(left / 1000);
-  if (S.phase === 'bet') { $('#cdNum').textContent = `00:${String(s).padStart(2, '0')}`; }
-  else $('#cdNum').textContent = { lock: '封盘', roll: '开奖', show: '结果' }[S.phase] || '--';
-  $('#cdBar').style.strokeDashoffset = String(CIRC * (1 - Math.min(1, left / dur)));
-  const urgent = S.phase === 'bet' && left <= 3000;
-  cd.classList.toggle('urgent', urgent); cd.classList.toggle('gold', S.phase !== 'bet'); cd.classList.toggle('hide', S.phase === 'show');
+  const dur = S.T && S.T[S.phase] ? S.T[S.phase] : (S.phase === 'bet' ? 20000 : 5000);
+  const txt = S.phase === 'bet' ? `00:${String(Math.ceil(left / 1000)).padStart(2, '0')}` : ({ lock: '封盘', roll: '开奖', show: '结果' }[S.phase] || '--');
+  if (txt !== lastTxt) { cdNum.textContent = txt; lastTxt = txt; }
+  const off = (CIRC * (1 - Math.min(1, left / dur))).toFixed(1);
+  if (off !== lastOff) { cdBar.style.strokeDashoffset = off; lastOff = off; }
+  const urgent = S.phase === 'bet' && left <= 3000, gold = S.phase !== 'bet', hide = S.phase === 'show';
+  if (urgent !== lastUrg) { cdEl.classList.toggle('urgent', urgent); lastUrg = urgent; }
+  if (gold !== lastGold) { cdEl.classList.toggle('gold', gold); lastGold = gold; }
+  if (hide !== lastHide) { cdEl.classList.toggle('hide', hide); lastHide = hide; }
   if (urgent && !S.cd && left > 200) { S.cd = true; SND.countdown(left / 1000); }
 }
-setInterval(tick, 100);
+requestAnimationFrame(tick);
 
 async function enter() {
   if (entered) return; entered = true;

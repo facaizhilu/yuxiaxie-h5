@@ -71,9 +71,15 @@ window.SND = (function () {
       [0, 0.5, 1, 1.5, 2, 2.25, 2.5, 2.65, 2.8, 2.9].forEach((t) => { if (t >= el - 0.02) play('tick', { v: 0.5 + t / 6, rate: 0.9 + t / 3 * 0.8, at: Math.max(0, t - el) }); });
     },
     lock() { play('lock', { v: 1 }); play(pick(['dieShuffle1', 'dieShuffle2']), { v: 0.55, at: 0.15, rate: 1.1 }); },
-    roll() { play('spin', { v: 0.85 }); play('diceThrow1', { v: 0.6, at: 0.02 }); },
+    roll() { play('spin', { v: 0.6 }); play('diceThrow1', { v: 0.5, at: 0.02 }); },
     hit(strength, pan) { play('hit', { v: Math.min(1, 0.25 + strength * 0.75), pan, rate: rnd(0.9, 1.15) }); play(pick(['dieThrow1', 'dieThrow2', 'dieThrow3']), { v: Math.min(0.8, 0.2 + strength * 0.6), pan, rate: rnd(0.95, 1.1) }); },
-    land() { play('land', { v: 1 }); },
+    cycle(i, k) { const n = performance.now(); if (n - (this._ct || 0) < 45) return; this._ct = n; play('tick', { v: 0.28, rate: 1.25 + i * 0.22 + (k % 3) * 0.05, pan: (i - 1) * 0.5 }); },
+    stop(i, pan) {
+      play('hit', { v: 1, pan, rate: 0.78 + i * 0.07 });
+      play(pick(['dieThrow1', 'dieThrow2', 'dieThrow3']), { v: 1, pan, rate: 0.9 + i * 0.05 });
+      play('diceThrow2', { v: 0.55, at: 0.03, pan, rate: 1.1 });
+    },
+    land() { play('land', { v: 1 }); play('dieThrow1', { v: 0.9, rate: 0.8 }); play('diceThrow1', { v: 0.7, at: 0.04, rate: 0.9 }); },
     reveal() { duck(0.3, 0.1); play('reveal', { v: 0.9 }); },
     win(big) {
       if (big) { play('bigwin', { v: 1, at: 0.5 }); for (let i = 0; i < 30; i++) play(pick(['handleCoins', 'handleCoins2', 'chipsCollide1', 'chipsCollide2']), { v: rnd(0.3, 0.65), at: 1 + Math.pow(Math.random(), 0.8) * 3.4, rate: rnd(0.95, 1.45), pan: rnd(-0.8, 0.8) }); }
