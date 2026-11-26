@@ -255,3 +255,4 @@ svg{display:block}
 }
 .board{grid-template-columns:repeat(3,minmax(0,1fr))}
 @media (min-width:1000px){.lobby .wrap{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr)}.chips{padding:3px 0}}
+.ped .badge{left:auto;right:9%;margin-left:0}

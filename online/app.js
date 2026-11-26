@@ -25,7 +25,7 @@ let token = localStorage.getItem('yxx_token') || '';
 let ws, sending = false, entered = false, stage = null, stageP = null;
 
 // 预取 3D 模块与图片
-const scenePromise = import('./scene.js?v=5').catch((e) => { console.warn('scene load failed', e); return null; });
+const scenePromise = import('./scene.js?v=6').catch((e) => { console.warn('scene load failed', e); return null; });
 const imgsPromise = Promise.all(SYMS.map((_, i) => new Promise((res) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(im); im.src = IMG(i); })));
 
 // ================= 音乐（登录即播放） =================
