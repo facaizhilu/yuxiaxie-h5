@@ -14,6 +14,8 @@ services:
         value: "22"
       - key: TEST_USER
         value: test01
+      - key: TEST_USERS
+        value: test01,test02,test03,test04,test05
       - key: TEST_PASS
         sync: false
       - key: TEST_BALANCE

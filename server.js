@@ -39,16 +39,22 @@ process.on('SIGTERM', () => { saveNow(); process.exit(0); });
 
 const keyOf = (u) => String(u).trim().toLowerCase();
 
-// 固定测试账号：TEST_USER / TEST_PASS 环境变量（Render 免费版磁盘会重置，启动时自动补建）
-(function seedTestAccount() {
-  const name = process.env.TEST_USER || 'test01', pass = process.env.TEST_PASS;
+// 固定测试账号：TEST_PASS 环境变量，TEST_USERS 为逗号分隔列表（默认 test01–test05）。
+// Render 免费版磁盘会重置，启动时自动补建；已有账号只在密码不匹配时更新哈希，余额保留。
+(function seedTestAccounts() {
+  const pass = process.env.TEST_PASS;
   if (!pass) return;
-  const k = keyOf(name), bal = +(process.env.TEST_BALANCE || 1000000);
-  const u = db.users[k];
-  if (!u || !bcrypt.compareSync(pass, u.hash)) {
-    db.users[k] = { name, hash: bcrypt.hashSync(pass, 10), balance: u ? u.balance : bal, created: u ? u.created : Date.now() };
+  const names = (process.env.TEST_USERS || 'test01,test02,test03,test04,test05').split(/[,;\s]+/).filter(Boolean);
+  const bal = +(process.env.TEST_BALANCE || 1000000);
+  const added = [];
+  for (const name of names) {
+    const k = keyOf(name), u = db.users[k];
+    if (!u || !bcrypt.compareSync(pass, u.hash)) {
+      db.users[k] = { name, hash: bcrypt.hashSync(pass, 10), balance: u ? u.balance : bal, created: u ? u.created : Date.now() };
+      if (!u) added.push(name);
+    }
   }
-  if (!u) console.log('seeded test account', name);
+  if (added.length) console.log('seeded test accounts', added.join(', '));
   saveNow();
 })();
 const USER_RE = /^[A-Za-z0-9_\u4e00-\u9fa5]{3,16}$/;
