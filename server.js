@@ -42,7 +42,10 @@ const keyOf = (u) => String(u).trim().toLowerCase();
   const pass = process.env.TEST_PASS;
   if (!pass) return;
   const names = (process.env.TEST_USERS || 'test01,test02,test03,test04,test05').split(/[,;\s]+/).filter(Boolean);
-  const bal = +(process.env.TEST_BALANCE || 100000000);
+  // Render dashboard may still have the old 1,000,000 TEST_BALANCE; treat that as the new default.
+  const DEFAULT_TEST_BAL = 100000000;
+  let bal = +(process.env.TEST_BALANCE || DEFAULT_TEST_BAL);
+  if (!Number.isFinite(bal) || bal <= 0 || bal === 1000000) bal = DEFAULT_TEST_BAL;
   const added = [];
   for (const name of names) {
     const k = keyOf(name), u = db.users[k];
