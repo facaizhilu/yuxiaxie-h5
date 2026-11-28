@@ -142,6 +142,9 @@ app.get('/version', (_req, res) => { noStore(res); res.json({ v: BUILD }); });
 // 旧版客户端（被手机缓存的旧页面）会请求这个文件：返回一个“强制刷新”脚本
 app.get('/online.js', (_req, res) => { noStore(res); res.type('js').send("(function(){var k='yxx_old_reload';if(sessionStorage.getItem(k))return;sessionStorage.setItem(k,'1');fetch('/',{cache:'reload'}).finally(function(){location.replace('/?r='+Date.now());});})();"); });
 ['online.css', 'style.css', 'symbols.js', 'audio.js'].forEach((f) => app.get('/' + f, (_req, res) => { noStore(res); res.sendFile(path.join(__dirname, f === 'online.css' ? 'online/online.css' : f)); }));
+app.use('/o/img', express.static(path.join(OL, 'img'), { index: false, setHeaders: (res) => {
+  res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+} }));
 app.use('/o', express.static(OL, { maxAge: 0, index: false, setHeaders: (res, f) => {
   if (/\.(webp|woff2)$/.test(f) || /vendor/.test(f)) res.setHeader('Cache-Control', 'public, max-age=86400');
   else res.setHeader('Cache-Control', 'no-cache');

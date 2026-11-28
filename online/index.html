@@ -8,21 +8,30 @@
 <title>鱼虾蟹 · 骰运星河</title>
 <link rel="icon" href="data:,">
 <script>window.__V="__V__";</script>
-<link rel="preload" href="/o/img/login-bg.webp?v=__V__" as="image">
-<link rel="preload" href="/audio/v2/login.mp3" as="fetch" crossorigin>
+<style>
+  html,body{margin:0;height:100%;background:#10060c}
+  .login-bg{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:0;background:#10060c url("data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDABQODxIPDRQSEBIXFRQYHjIhHhwcHj0sLiQySUBMS0dARkVQWnNiUFVtVkVGZIhlbXd7gYKBTmCNl4x9lnN+gXz/2wBDARUXFx4aHjshITt8U0ZTfHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHz/wAARCABOACQDASIAAhEBAxEB/8QAGQABAAMBAQAAAAAAAAAAAAAAAAECBAUD/8QAHxAAAgICAwEBAQAAAAAAAAAAAAECEQMEEiExFEFh/8QAFwEBAQEBAAAAAAAAAAAAAAAAAAMCAf/EABcRAQEBAQAAAAAAAAAAAAAAAAABAhH/2gAMAwEAAhEDEQA/ANSLIqmWKdYSCoOCQRYAJJPsmclXRytjdlBdFdXdeR02StUkdSxZ4PKq9POW1GPrGNdjms8rXYMy2Iteg31nji5M0ckfSutJQfpzo5Gv0vHI79JazarLI7P0f0y7Ga30zMstr0huzMxxu66v9E11YPFoFE+PAAGnE8mOTIBwW5sFQAAB0AAAAAH/2Q==") center/cover no-repeat}
+  .login-bg img{width:100%;height:100%;object-fit:cover;object-position:center center;display:block;opacity:0;transition:opacity .45s ease;transform:none}
+  .login-bg img.ready{opacity:1}
+  @media (prefers-reduced-motion:reduce){.login-bg img{transition:none}}
+</style>
+<noscript><style>.login-bg img{opacity:1}</style></noscript>
+<link rel="preload" href="/o/img/login-bg.webp?v=__V__" as="image" fetchpriority="high">
 <link rel="stylesheet" href="/o/app.css?v=__V__">
 </head>
 <body>
 
-<!-- ============ 登录页（Pha That Luang 夜景，CC BY-SA 3.0） ============ -->
+<!-- ============ 登录页（Pha That Luang 黄昏，CC BY-SA 4.0） ============ -->
 <section id="login" class="login">
   <div class="login-bg" aria-hidden="true">
-    <img src="/o/img/login-bg.webp?v=__V__" alt="" width="1170" height="2532">
+    <img id="loginBg" src="/o/img/login-bg.webp?v=__V__" alt="" width="1290" height="2796" fetchpriority="high" onload="this.classList.add('ready')">
   </div>
+  <script>!function(i){if(i&&i.complete&&i.naturalWidth)i.classList.add('ready')}(document.getElementById('loginBg'))</script>
   <div class="login-wash" aria-hidden="true"></div>
   <canvas id="dust"></canvas>
   <button id="loginMusic" class="music-btn gold" aria-label="音乐"><svg viewBox="0 0 24 24"><path d="M9 18V5l11-2v13" /><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg></button>
   <div class="login-inner">
+    <div class="login-hero">
     <h1 class="t-title">鱼虾蟹</h1>
     <div class="lotus">
       <i class="ln l"></i>
@@ -35,6 +44,7 @@
           <path d="M44 58 Q60 66 76 58 L72 63 Q60 68 48 63Z"/>
         </g></svg>
       <i class="ln r"></i>
+    </div>
     </div>
     <form id="authForm" class="t-panel" autocomplete="on">
       <div class="t-tabs"><button type="button" class="on" data-m="login">登录</button><span></span><button type="button" data-m="register">注册</button></div>
@@ -50,8 +60,8 @@
       <button class="t-btn" id="enterBtn" type="button"><span>进入大厅</span></button>
       <button class="t-link" id="switchUser" type="button">切换账号</button>
     </div>
+    <a class="login-credit" href="https://commons.wikimedia.org/wiki/File:Naplemente_Szt%C3%BApa.JPG" target="_blank" rel="noopener noreferrer">Pha That Luang · Belda10 · CC BY-SA 4.0</a>
   </div>
-  <a class="login-credit" href="https://commons.wikimedia.org/wiki/File:PhaThatLuang_Afterdark.jpg" target="_blank" rel="noopener noreferrer">Pha That Luang · שמעון שוואעי · CC BY-SA 3.0</a>
 </section>
 
 <!-- ============ 大厅（单人局 · 斜坡拉绳放骰） ============ -->
