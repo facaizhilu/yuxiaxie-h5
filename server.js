@@ -13,7 +13,7 @@ const PORT = +process.env.PORT || 8790;
 const DATA_DIR = path.join(__dirname, 'data');
 const DB_FILE = path.join(DATA_DIR, 'db.json');
 const START_BAL = 10000;
-const CHIPS = [10000, 50000, 100000, 500000, 1000000];
+const CHIPS = [10000, 20000, 50000, 100000, 200000, 500000, 1000000, 2000000, 5000000];
 const MAX_BET_PER_ROUND = 100000000;
 const SYM_NAMES = ['大象', '兔子', '红鲤鱼', '老虎', '孔雀', '马'];
 
@@ -37,21 +37,24 @@ process.on('SIGTERM', () => { saveNow(); process.exit(0); });
 const keyOf = (u) => String(u).trim().toLowerCase();
 
 // 固定测试账号：TEST_PASS 环境变量，TEST_USERS 为逗号分隔列表（默认 test01–test05）。
-// Render 免费版磁盘会重置，启动时自动补建；已有账号只在密码不匹配时更新哈希，余额保留。
+// Render 免费版磁盘会重置，启动时自动补建；每次启动将测试账号余额重置为 TEST_BALANCE；密码不匹配时更新哈希。
 (function seedTestAccounts() {
   const pass = process.env.TEST_PASS;
   if (!pass) return;
   const names = (process.env.TEST_USERS || 'test01,test02,test03,test04,test05').split(/[,;\s]+/).filter(Boolean);
-  const bal = +(process.env.TEST_BALANCE || 1000000);
+  const bal = +(process.env.TEST_BALANCE || 100000000);
   const added = [];
   for (const name of names) {
     const k = keyOf(name), u = db.users[k];
-    if (!u || !bcrypt.compareSync(pass, u.hash)) {
-      db.users[k] = { name, hash: bcrypt.hashSync(pass, 10), balance: u ? u.balance : bal, created: u ? u.created : Date.now() };
-      if (!u) added.push(name);
-    }
+    const needHash = !u || !bcrypt.compareSync(pass, u.hash);
+    db.users[k] = {
+      name, hash: needHash ? bcrypt.hashSync(pass, 10) : u.hash,
+      balance: bal, created: u ? u.created : Date.now(),
+    };
+    if (!u) added.push(name);
   }
   if (added.length) console.log('seeded test accounts', added.join(', '));
+  else console.log('refreshed test account balances to', bal);
   saveNow();
 })();
 const USER_RE = /^[A-Za-z0-9_\u4e00-\u9fa5]{3,16}$/;

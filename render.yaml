@@ -19,4 +19,4 @@ services:
       - key: TEST_PASS
         sync: false
       - key: TEST_BALANCE
-        value: "1000000"
+        value: "100000000"

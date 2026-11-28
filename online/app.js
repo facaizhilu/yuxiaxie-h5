@@ -10,9 +10,18 @@ const SYMS = [
   { id: 'horse', short: '骏马', name: '骏马奔腾', cls: 'gold' },
 ];
 const IMG = (i) => `/o/img/${SYMS[i].id}.webp`;
-const CHIPS = [{ v: 10000, g: 0 }, { v: 50000, g: 0 }, { v: 100000, g: 0 }, { v: 500000, g: 1 }, { v: 1000000, g: 1 }];
+const CHIPS = [
+  { v: 10000, c: '#4d72d6' },
+  { v: 20000, c: '#9a7a3c' },
+  { v: 50000, c: '#9a48c0' },
+  { v: 100000, c: '#1f9a78' },
+  { v: 200000, c: '#1a7a4c' },
+  { v: 500000, c: '#b8446a' },
+  { v: 1000000, c: '#d4a24a' },
+  { v: 2000000, c: '#c4693a' },
+  { v: 5000000, c: '#c43c44' },
+];
 const fmt = (n) => Math.round(n).toLocaleString('en-US');
-const kfmt = (n) => { if (n >= 1e6) { const x = n / 1e6; return (x % 1 ? x.toFixed(1) : x) + 'M'; } if (n >= 1e4) { const x = n / 1e3; return (x % 1 ? x.toFixed(1) : x) + 'K'; } return fmt(n); };
 const sum = (o) => Object.values(o).reduce((a, b) => a + b, 0);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const toObj = (arr) => { const o = {}; (arr || []).forEach((v, i) => { if (v) o[i] = v; }); return o; };
@@ -119,18 +128,17 @@ board.innerHTML = SYMS.map((s, i) => `
     <div class="badge" id="badge${i}"></div>
   </button>`).join('');
 const peds = [...board.querySelectorAll('.ped')];
-const chipLbl = (v) => (v >= 1e6 ? (v / 1e6) + 'M' : (v / 1e3) + 'K');
-$('#chips').innerHTML = CHIPS.map((c) => `<button class="chip${c.g ? ' g' : ''}${c.v === S.chip ? ' sel' : ''}" data-v="${c.v}">${chipLbl(c.v)}</button>`).join('');
+$('#chips').innerHTML = CHIPS.map((c) => `<button class="chip${c.v === S.chip ? ' sel' : ''}" data-v="${c.v}" style="--c:${c.c}">${fmt(c.v)}</button>`).join('');
 
 function renderBalance(bump) { $('#balance').textContent = fmt(S.balance); if (bump) retrigger($('.bal'), 'bump'); }
 function renderPed(i) {
   const m = S.mine[i] || 0, el = $('#mine' + i);
   el.classList.toggle('on', !!m);
-  el.innerHTML = m ? kfmt(m) : '';
+  el.innerHTML = m ? fmt(m) : '';
   peds[i].classList.toggle('has', !!m);
   let left = m, k = 0, html = '';
   for (let c = CHIPS.length - 1; c >= 0 && k < 5; c--) while (left >= CHIPS[c].v && k < 5) {
-    const col = CHIPS[c].g ? '#f3c66a' : '#4fe9ff';
+    const col = CHIPS[c].c;
     html += `<i style="bottom:${k * 4}px;--cc:${col}"></i>`; left -= CHIPS[c].v; k++;
   }
   $('#stack' + i).innerHTML = html;
@@ -140,9 +148,9 @@ const histImgs = (r) => r.map((s) => `<img src="${IMG(s)}" alt="">`).join('');
 function setRound(n) { S.round = n; $('#round').textContent = `第 ${n} 局`; }
 let toastT;
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 1600); }
-function flyChip(from, to, gold) {
+function flyChip(from, to) {
   const a = from.getBoundingClientRect(), b = to.getBoundingClientRect(), el = document.createElement('div');
-  const col = gold ? '#f3c66a' : '#4fe9ff';
+  const col = (from && getComputedStyle(from).getPropertyValue('--c').trim()) || '#4d72d6';
   el.className = 'fly-chip'; el.style.cssText = `left:${a.left + a.width / 2 - 12}px;top:${a.top + a.height / 2 - 12}px;background:radial-gradient(circle,#06121e 35%,${col} 36%);color:${col}`;
   document.body.appendChild(el);
   const dx = b.left + b.width / 2 - (a.left + a.width / 2) + (Math.random() * 30 - 15), dy = b.top + b.height * 0.45 - (a.top + a.height / 2);
@@ -162,7 +170,7 @@ function placeChip(i) {
   S.balance -= S.chip;
   S.mine[i] = (S.mine[i] || 0) + S.chip;
   S.inflight = (S.inflight || 0) + 1;
-  flyChip(document.querySelector('.chip.sel'), peds[i], S.chip >= 500000);
+  flyChip(document.querySelector('.chip.sel'), peds[i]);
   SND.chip(); renderPed(i); renderBalance(true); hideHint(); armHint();
   if (navigator.vibrate) navigator.vibrate(8);
   ws.send(JSON.stringify({ t: 'bet', bets: { [i]: S.chip } }));

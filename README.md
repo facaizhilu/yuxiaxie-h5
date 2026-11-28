@@ -17,7 +17,7 @@
 
 - 本地运行：`npm install && node server.js`（默认端口 8790，可用 `PORT` 覆盖），打开 `http://localhost:8790/`
 - 数据存放在 `data/db.json`（已在 .gitignore 中，不入库）
-- 固定测试账号：设置环境变量 `TEST_USER`（默认 test01）、`TEST_PASS`、`TEST_BALANCE`（默认 1000000），启动时自动创建
+- 固定测试账号：设置环境变量 `TEST_USER`（默认 test01）、`TEST_PASS`、`TEST_BALANCE`（默认 100000000），启动时自动创建
 - 也可手动设置：`node set-account.js <用户名> <密码> <余额>`（先停服务器）
 - 临时服务器：`./start-temp.sh`（后台启动 server，并尝试开 cloudflared 临时隧道；地址写入 `data/tunnel-url.txt`）
 

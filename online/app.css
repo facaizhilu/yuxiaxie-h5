@@ -434,3 +434,13 @@ input{-webkit-user-select:text;user-select:text;font-size:16px!important}
 .bottom{flex:none;display:flex;flex-direction:column;gap:5px;padding:8px 10px calc(4px + env(safe-area-inset-bottom));background:linear-gradient(180deg,#040a14,#02050b)}
 .bottom .board{flex:none}
 .chip{width:54px;height:50px;font-size:11px;letter-spacing:0}
+
+/* v8: two-row Lao-kip colored chips, full number labels */
+.chips{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px 4px;padding:10px 0 6px;flex:none}
+.chip{width:calc((100% - 16px) / 5);max-width:72px;height:36px;flex:0 0 auto;box-sizing:border-box;border-radius:18px;font:700 10px/1 "PingFang SC","Noto Sans SC","Arial Narrow",system-ui,sans-serif;letter-spacing:-.02em;color:#fff;
+  background:radial-gradient(circle,#06121e 0 52%,transparent 53%),repeating-conic-gradient(var(--c) 0 15deg,#0a2030 15deg 30deg);
+  box-shadow:0 0 0 2px #04101a,0 0 0 3px color-mix(in srgb,var(--c) 70%,transparent),0 0 12px color-mix(in srgb,var(--c) 45%,transparent),0 4px 0 #020a12;text-shadow:0 0 6px var(--c)}
+.chip::after{inset:4px 10px;border-radius:14px}
+.chip.sel{transform:translateY(-5px) scale(1.06);box-shadow:0 0 0 2px #04101a,0 0 0 4px var(--c),0 0 20px var(--c),0 7px 0 #020a12}
+.chip.sel::before{inset:-5px;border-radius:22px}
+.bal{font-size:12px;letter-spacing:-.02em}
