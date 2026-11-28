@@ -8,12 +8,36 @@ svg{display:block}
 [hidden]{display:none!important}
 
 /* ================= 登录 ================= */
-.login{position:fixed;inset:0;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#0d0406}
-.login-bg{position:absolute;inset:0;background:url(/o/img/login-bg.webp) center/cover no-repeat;filter:saturate(.9) brightness(.92);transform:scale(1.04);animation:kenburns 30s ease-in-out infinite alternate}
-.login-bg::after{content:"";position:absolute;inset:0;background:radial-gradient(70% 45% at 50% 52%,rgba(20,4,8,.55),transparent 75%),linear-gradient(180deg,rgba(10,2,4,.25),rgba(10,2,4,.05) 40%,rgba(10,2,4,.5))}
-@keyframes kenburns{to{transform:scale(1.1) translateY(-1.5%)}}
-#dust{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
-.login-inner{position:relative;z-index:2;width:min(86vw,380px);display:flex;flex-direction:column;align-items:center;margin-top:-4vh}
+.login{position:fixed;inset:0;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#10060c}
+.login-bg{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.lg-sky{position:absolute;inset:0;background:
+  radial-gradient(50% 36% at 50% 12%,rgba(232,180,80,.22),transparent 62%),
+  radial-gradient(80% 50% at 50% 100%,rgba(80,16,20,.45),transparent 60%),
+  linear-gradient(180deg,#1a0c1c 0%,#140814 28%,#1a0a14 58%,#0c0610 100%)}
+.lg-rays{position:absolute;left:50%;top:-8%;width:180%;height:70%;transform:translateX(-50%);
+  background:repeating-conic-gradient(from 0deg at 50% 18%,transparent 0 6deg,rgba(246,212,130,.08) 7deg,transparent 9deg);
+  -webkit-mask-image:radial-gradient(ellipse 48% 62% at 50% 18%,#000 0%,transparent 72%);
+  mask-image:radial-gradient(ellipse 48% 62% at 50% 18%,#000 0%,transparent 72%);
+  animation:rayspin 90s linear infinite;opacity:.85}
+@keyframes rayspin{to{transform:translateX(-50%) rotate(360deg)}}
+.lg-scene{position:absolute;inset:0;width:100%;height:100%;display:block}
+.lg-shimmer{position:absolute;inset:0;background:linear-gradient(110deg,transparent 38%,rgba(255,232,170,.16) 50%,transparent 62%);background-size:220% 100%;animation:lgshimmer 10s ease-in-out infinite;mix-blend-mode:soft-light;pointer-events:none}
+@keyframes lgshimmer{0%,100%{background-position:120% 0}50%{background-position:-20% 0}}
+.lg-vignette{position:absolute;inset:0;background:
+  radial-gradient(48% 36% at 50% 48%,rgba(10,4,8,.62),transparent 70%),
+  linear-gradient(180deg,rgba(10,4,8,.12) 0%,transparent 12%,rgba(10,4,8,.42) 20%,rgba(10,4,8,.5) 26%,rgba(10,4,8,.35) 34%,transparent 44%,transparent 58%,rgba(10,4,8,.5) 100%)}
+.lg-frame{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:4;pointer-events:none;overflow:visible;filter:drop-shadow(0 0 6px rgba(200,150,60,.25))}
+.lantern-glow{transform-box:fill-box;transform-origin:center;animation:flicker 2.6s ease-in-out infinite;will-change:opacity}
+@keyframes flicker{0%,100%{opacity:.7}18%{opacity:.95}40%{opacity:.55}62%{opacity:1}80%{opacity:.65}}
+.chedi.main{filter:drop-shadow(0 0 16px rgba(232,180,70,.18))}
+#dust{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}
+@media (prefers-reduced-motion:reduce){
+  .lg-rays,.lg-shimmer,.lantern-glow{animation:none!important}
+  .lg-rays{transform:translateX(-50%)}
+  .lg-shimmer{background-position:50% 0;opacity:.35}
+  .lantern-glow{opacity:.8}
+}
+.login-inner{position:relative;z-index:3;width:min(86vw,380px);display:flex;flex-direction:column;align-items:center;margin-top:-4vh}
 .t-title{margin:0;font-family:"Noto Serif SC","Songti SC","STSong","SimSun",serif;font-weight:900;font-size:clamp(64px,19vw,92px);letter-spacing:.06em;line-height:1;
   background:linear-gradient(180deg,#fff1c2 0%,#e7c06a 38%,#b07a28 62%,#f0d48c 78%,#8a5a1a 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
   filter:drop-shadow(0 2px 0 #3a1f05) drop-shadow(0 6px 10px rgba(0,0,0,.7)) drop-shadow(0 0 22px rgba(230,170,70,.25))}
@@ -269,7 +293,6 @@ input{-webkit-user-select:text;user-select:text;font-size:16px!important}
 /* ===== v4 流畅度：只用 transform/opacity 做动画，去掉昂贵的 backdrop-filter / 动画 filter ===== */
 .feed-panel{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background:linear-gradient(180deg,rgba(8,30,48,.9),rgba(4,14,26,.92))}
 .t-panel{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
-.login-bg{will-change:transform}
 .ped{transition:transform .2s cubic-bezier(.2,.8,.2,1);will-change:transform;backface-visibility:hidden}
 .ped.win{animation:none;filter:drop-shadow(0 0 12px #ffd36a) drop-shadow(0 8px 10px rgba(0,0,0,.6))}
 .ped .frame::after{content:"";position:absolute;inset:0;background:#fff3c0;opacity:0}

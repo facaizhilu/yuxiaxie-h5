@@ -75,17 +75,22 @@ $('#lobbyMusic').addEventListener('click', musicBtn);
 // ================= 登录页金尘 =================
 (function dust() {
   const c = $('#dust'), g = c.getContext('2d'); let W, H, P = [];
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const size = () => { const d = Math.min(devicePixelRatio || 1, 2); W = c.clientWidth; H = c.clientHeight; c.width = W * d; c.height = H * d; g.setTransform(d, 0, 0, d, 0, 0); };
   size(); addEventListener('resize', size);
-  for (let i = 0; i < 46; i++) P.push({ x: Math.random(), y: Math.random(), r: 0.5 + Math.random() * 1.8, s: 0.00015 + Math.random() * 0.0005, ph: Math.random() * 6 });
-  (function f(t) {
-    if (!$('#login').hidden) {
-      g.clearRect(0, 0, W, H);
-      for (const p of P) { p.y -= p.s; if (p.y < -0.02) { p.y = 1.02; p.x = Math.random(); }
-        const a = 0.25 + 0.35 * Math.sin(t / 900 + p.ph); g.fillStyle = `rgba(240,200,120,${a})`; g.beginPath(); g.arc(p.x * W + Math.sin(t / 2000 + p.ph) * 8, p.y * H, p.r, 0, 7); g.fill(); }
+  for (let i = 0; i < (reduce ? 22 : 52); i++) P.push({ x: Math.random(), y: Math.random(), r: 0.5 + Math.random() * 1.8, s: 0.00012 + Math.random() * 0.00045, ph: Math.random() * 6 });
+  const draw = (t) => {
+    if ($('#login').hidden) return;
+    g.clearRect(0, 0, W, H);
+    for (const p of P) {
+      if (!reduce) { p.y -= p.s; if (p.y < -0.02) { p.y = 1.02; p.x = Math.random(); } }
+      const a = 0.22 + 0.38 * Math.sin((reduce ? p.ph : t / 900 + p.ph));
+      const ox = reduce ? 0 : Math.sin(t / 2000 + p.ph) * 8;
+      g.fillStyle = `rgba(240,200,120,${a})`; g.beginPath(); g.arc(p.x * W + ox, p.y * H, p.r, 0, 7); g.fill();
     }
-    requestAnimationFrame(f);
-  })(0);
+  };
+  if (reduce) { draw(0); return; }
+  (function f(t) { draw(t); requestAnimationFrame(f); })(0);
 })();
 
 // ================= 登录 / 注册 =================
