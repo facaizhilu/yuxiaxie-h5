@@ -1,4 +1,4 @@
-/* 鱼虾蟹 演示服务器：注册登录 + 公共大厅（服务端开奖、机器人、WebSocket 广播）
+/* 鱼虾蟹 演示服务器：注册登录 + 单人局（下注→确认→拉绳放骰，服务端加密随机开奖、按用户结算）
  * 仅虚拟演示币，无任何充值 / 兑换 / 支付功能。 */
 'use strict';
 const path = require('path');
@@ -15,10 +15,7 @@ const DB_FILE = path.join(DATA_DIR, 'db.json');
 const START_BAL = 10000;
 const CHIPS = [10, 50, 100, 500, 1000];
 const MAX_BET_PER_ROUND = 1000000;
-const T = { bet: 20000, lock: 1500, roll: 7500, show: 5000 };
-const SYM_NAMES = ['大象', '兔子', '红鲤鱼', '虾', '孔雀', '马'];
-const ROBOTS = ['阿强', '小美', 'LuckyKing', '金龙', 'Somchai', '财神到', '海风', '老王', 'Noy', '阿杰', '发财哥', 'Mali', '小鱼儿',
-  'Bounmy', '星辰', 'Kham', '大头', 'Lina', '阿福', 'Tony88', '旺旺', 'Vong', '锦鲤附体', 'Ploy', '一路发', 'Sengdao', '豹子头', 'Ken', '好运来', 'Nana'];
+const SYM_NAMES = ['大象', '兔子', '红鲤鱼', '老虎', '孔雀', '马'];
 
 // ---------------- 存储（JSON 文件） ----------------
 fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -120,7 +117,7 @@ app.get('/api/me', (req, res) => {
 app.post('/api/logout', (req, res) => {
   delete db.sessions[(req.headers.authorization || '').replace(/^Bearer /, '')]; save(); res.json({ ok: true });
 });
-app.get('/healthz', (_req, res) => res.json({ ok: true, round: game.round, phase: game.phase }));
+app.get('/healthz', (_req, res) => res.json({ ok: true, round: db.round }));
 
 // 只对外提供前端文件（不暴露 data/ 与服务端代码）
 // 版本号：优先用 Render 的提交号，否则对前端文件内容做哈希；index 永不缓存，资源 URL 带 ?v=版本
@@ -147,83 +144,19 @@ app.use('/audio', express.static(path.join(__dirname, 'audio'), { maxAge: '7d', 
 
 const server = http.createServer(app);
 
-// ---------------- 游戏大厅 ----------------
+// ---------------- 单人局 ----------------
+// 每位玩家独立一局：确认下注时服务器用 crypto.randomInt 定下 3 颗骰子（不下发客户端），
+// 每次拉绳只下发被放下的骰子；3 颗全部放下后按用户结算。未结算局存于用户记录，刷新/断线不丢。
 const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 4096 });
 const clients = new Set(); // {ws, user}
-const game = { round: db.round, phase: 'bet', endAt: 0, pools: [0, 0, 0, 0, 0, 0], bets: new Map(), robotBets: [], result: null };
-
+const ZERO = () => [0, 0, 0, 0, 0, 0];
 function send(ws, msg) { if (ws.readyState === 1) ws.send(JSON.stringify(msg)); }
-function broadcast(msg) { const s = JSON.stringify(msg); for (const c of clients) if (c.ws.readyState === 1) c.ws.send(s); }
-const onlineCount = () => new Set([...clients].map((c) => c.user.name)).size + ROBOTS.length;
-function snapshot(c) {
-  return {
-    t: 'state', round: game.round, phase: game.phase, endAt: game.endAt, now: Date.now(),
-    pools: game.pools, history: db.history.slice(0, 20), result: game.result, online: onlineCount(),
-    me: pub(c.user), myBets: game.bets.get(keyOf(c.user.name)) || [0, 0, 0, 0, 0, 0], T,
-  };
-}
-function setPhase(p, dur, extra) {
-  game.phase = p; game.endAt = Date.now() + dur;
-  broadcast({ t: 'phase', phase: p, round: game.round, endAt: game.endAt, now: Date.now(), ...extra });
-}
-
-function startBet() {
-  game.round++; db.round = game.round; save();
-  game.pools = [0, 0, 0, 0, 0, 0]; game.bets = new Map(); game.robotBets = []; game.result = null;
-  setPhase('bet', T.bet, { pools: game.pools });
-  for (let k = 0; k < 4 + crypto.randomInt(4); k++) setTimeout(robotBet, k * 120);
-  scheduleRobot(600);
-  setTimeout(lock, T.bet);
-}
-let robotT;
-function scheduleRobot(ms) { clearTimeout(robotT); robotT = setTimeout(() => { robotBet(); const left = game.endAt - Date.now(); if (game.phase === 'bet') scheduleRobot(left < 4000 ? 90 + crypto.randomInt(200) : 220 + crypto.randomInt(520)); }, ms); }
-function robotBet() {
-  if (game.phase !== 'bet') return;
-  const name = ROBOTS[crypto.randomInt(ROBOTS.length)];
-  const w = crypto.randomInt(100);
-  const base = w < 28 ? 10 : w < 58 ? 50 : w < 82 ? 100 : w < 96 ? 500 : 1000;
-  const amt = base * (1 + (crypto.randomInt(10) < 3 ? crypto.randomInt(4) : 0));
-  const i = crypto.randomInt(6);
-  game.pools[i] += amt;
-  game.robotBets.push({ name, i, amt });
-  broadcast({ t: 'bet', name, sym: i, amt, pool: game.pools[i] });
-}
-function lock() {
-  clearTimeout(robotT);
-  setPhase('lock', T.lock);
-  setTimeout(roll, T.lock);
-}
-function roll() {
-  game.result = [crypto.randomInt(6), crypto.randomInt(6), crypto.randomInt(6)];
-  setPhase('roll', T.roll, { result: game.result });
-  setTimeout(reveal, T.roll);
-}
-function reveal() {
-  const r = game.result, cnt = [0, 0, 0, 0, 0, 0];
-  r.forEach((s) => cnt[s]++);
-  const winners = [];
-  const payouts = new Map();
-  for (const [k, bets] of game.bets) {
-    const u = db.users[k]; if (!u) continue;
-    let win = 0, bet = 0;
-    bets.forEach((b, i) => { bet += b; if (b && cnt[i]) win += b * (1 + cnt[i]); });
-    u.balance += win;
-    payouts.set(k, { win, bet });
-    if (win) winners.push({ name: u.name, win });
-  }
-  const rw = {};
-  game.robotBets.forEach((b) => { if (cnt[b.i]) rw[b.name] = (rw[b.name] || 0) + b.amt * (1 + cnt[b.i]); });
-  Object.entries(rw).forEach(([name, win]) => winners.push({ name, win }));
-  winners.sort((a, b) => b.win - a.win);
-  db.history.unshift(r); db.history = db.history.slice(0, 50); save();
-  game.phase = 'show'; game.endAt = Date.now() + T.show;
-  for (const c of clients) {
-    const k = keyOf(c.user.name);
-    const p = payouts.get(k) || { win: 0, bet: 0 };
-    send(c.ws, { t: 'phase', phase: 'show', round: game.round, endAt: game.endAt, now: Date.now(), result: r, counts: cnt,
-      myWin: p.win, myBet: p.bet, balance: c.user.balance, winners: winners.slice(0, 3) });
-  }
-  setTimeout(startBet, T.show);
+function sendUser(u, msg) { const s = JSON.stringify(msg); for (const c of clients) if (c.user === u && c.ws.readyState === 1) c.ws.send(s); }
+function snapshot(u) {
+  const cur = u.cur;
+  return { t: 'state', now: Date.now(), me: pub(u), history: (u.hist || []).slice(0, 30), rounds: u.rounds || 0,
+    round: cur ? cur.id : db.round + 1, myBets: cur ? cur.bets : ZERO(), released: cur ? cur.released : 0,
+    landed: cur ? cur.result.slice(0, cur.released) : [] };
 }
 
 wss.on('connection', (ws, req) => {
@@ -232,25 +165,26 @@ wss.on('connection', (ws, req) => {
   if (!user) { send(ws, { t: 'auth', error: '请重新登录' }); return ws.close(); }
   const c = { ws, user };
   clients.add(c);
-  send(ws, snapshot(c));
-  broadcast({ t: 'online', n: onlineCount() });
+  send(ws, snapshot(user));
   ws.isAlive = true;
   ws.on('pong', () => { ws.isAlive = true; });
   ws.on('message', (raw) => {
     let m; try { m = JSON.parse(raw); } catch (_) { return; }
     if (m.t === 'bet') return placeBet(c, m);
+    if (m.t === 'pull') return pull(c, m);
     if (m.t === 'ping') return send(ws, { t: 'pong', now: Date.now() });
   });
-  ws.on('close', () => { clients.delete(c); broadcast({ t: 'online', n: onlineCount() }); });
+  ws.on('close', () => { clients.delete(c); });
 });
 setInterval(() => { for (const c of clients) { if (!c.ws.isAlive) { c.ws.terminate(); continue; } c.ws.isAlive = false; c.ws.ping(); } }, 25000);
 
 function placeBet(c, m) {
-  const fail = (error) => send(c.ws, { t: 'betfail', error, balance: c.user.balance });
-  if (game.phase !== 'bet' || Date.now() > game.endAt - 150) return fail('已封盘，请等待下一回合');
+  const u = c.user;
+  const fail = (error) => send(c.ws, { t: 'betfail', error, balance: u.balance });
+  if (u.cur && u.cur.released > 0) return fail('骰子已放下，请等待开奖');
   const bets = m.bets;
   if (!bets || typeof bets !== 'object') return fail('下注数据错误');
-  const add = [0, 0, 0, 0, 0, 0];
+  const add = ZERO();
   for (const [k, v] of Object.entries(bets)) {
     const i = Number(k);
     if (!Number.isInteger(i) || i < 0 || i > 5) return fail('下注数据错误');
@@ -259,15 +193,35 @@ function placeBet(c, m) {
   }
   const total = add.reduce((a, b) => a + b, 0);
   if (!total) return fail('请先下注');
-  const key = keyOf(c.user.name);
-  const mine = game.bets.get(key) || [0, 0, 0, 0, 0, 0];
+  const mine = u.cur ? u.cur.bets : ZERO();
   if (mine.reduce((a, b) => a + b, 0) + total > MAX_BET_PER_ROUND) return fail('超过单局下注上限');
-  if (total > c.user.balance) return fail('余额不足');
-  c.user.balance -= total; save();
-  add.forEach((v, i) => { mine[i] += v; game.pools[i] += v; });
-  game.bets.set(key, mine);
-  for (const o of clients) if (o.user === c.user) send(o.ws, { t: 'betok', balance: c.user.balance, myBets: mine, total });
-  add.forEach((v, i) => { if (v) broadcast({ t: 'bet', name: c.user.name, sym: i, amt: v, pool: game.pools[i] }); });
+  if (total > u.balance) return fail('余额不足');
+  if (!u.cur) { db.round++; u.cur = { id: db.round, bets: mine, result: [crypto.randomInt(6), crypto.randomInt(6), crypto.randomInt(6)], released: 0 }; }
+  u.balance -= total;
+  add.forEach((v, i) => { mine[i] += v; });
+  save();
+  sendUser(u, { t: 'betok', balance: u.balance, myBets: mine, total, round: u.cur.id });
 }
 
-server.listen(PORT, () => { console.log(`鱼虾蟹 server on :${PORT}`); startBet(); });
+function pull(c, m) {
+  const u = c.user, cur = u.cur;
+  if (!cur || !cur.bets.some(Boolean)) return send(c.ws, { t: 'pullfail', error: '请先下注并确认' });
+  const n = m.n === 3 ? 3 : 1;
+  const from = cur.released, k = Math.min(n, 3 - from);
+  if (k <= 0) return send(c.ws, { t: 'pullfail', error: '骰子已全部放下' });
+  cur.released += k;
+  const drops = [];
+  for (let i = from; i < from + k; i++) drops.push({ i, s: cur.result[i] });
+  if (cur.released < 3) { save(); return sendUser(u, { t: 'drop', drops, done: false }); }
+  const r = cur.result, cnt = ZERO();
+  r.forEach((s) => cnt[s]++);
+  let win = 0, bet = 0;
+  cur.bets.forEach((b, i) => { bet += b; if (b && cnt[i]) win += b * (1 + cnt[i]); });
+  u.balance += win;
+  u.hist = [r, ...(u.hist || [])].slice(0, 30);
+  u.rounds = (u.rounds || 0) + 1;
+  const id = cur.id; delete u.cur; save();
+  sendUser(u, { t: 'drop', drops, done: true, round: id, result: r, counts: cnt, myWin: win, myBet: bet, balance: u.balance, bets: cur.bets });
+}
+
+server.listen(PORT, () => { console.log(`鱼虾蟹 server on :${PORT}`); });

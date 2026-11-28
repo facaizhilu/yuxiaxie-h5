@@ -53,59 +53,55 @@
   </div>
 </section>
 
-<!-- ============ 大厅（科幻 HUD） ============ -->
+<!-- ============ 大厅（单人局 · 斜坡拉绳放骰） ============ -->
 <section id="lobby" class="lobby" hidden>
   <div class="hud-bg"></div>
   <div class="wrap">
     <header class="hud-top">
       <div class="me">
         <div class="ava"><svg viewBox="0 0 64 64"><defs><radialGradient id="hg" cx=".4" cy=".35" r=".7"><stop offset="0" stop-color="#9ff6ff"/><stop offset=".5" stop-color="#1e6f9a"/><stop offset="1" stop-color="#071a2a"/></radialGradient></defs><circle cx="32" cy="32" r="30" fill="#07141f"/><path d="M14 58c2-12 10-17 18-17s16 5 18 17z" fill="#c8d3df"/><circle cx="32" cy="27" r="15" fill="#e8eef5"/><ellipse cx="32" cy="28" rx="11" ry="9" fill="url(#hg)"/><path d="M24 24q8-6 16 0" stroke="#fff" stroke-width="2" fill="none" opacity=".6"/></svg><span class="lv">LV.28</span></div>
-        <div class="me-info"><div class="me-name" id="meName">玩家</div><div class="me-sub">★ <span id="round">第 - 回合</span></div></div>
+        <div class="me-info"><div class="me-name" id="meName">玩家</div><div class="me-sub">★ <span id="round">第 - 局</span></div></div>
       </div>
       <div class="title-plate"><svg viewBox="0 0 24 24"><path d="M12 2 21 7v10l-9 5-9-5V7z"/><path d="M12 22V12M21 7l-9 5-9-5"/></svg><span>骰运星河 · 鱼虾蟹</span></div>
-      <div class="top-right">
-        <div class="bal"><i class="coin"></i><b id="balance">0</b></div>
-        <div class="online"><i class="dot"></i><span id="online">0</span> 在线</div>
-      </div>
+      <div class="top-right"><div class="bal"><i class="coin"></i><b id="balance">0</b></div></div>
       <button id="lobbyMusic" class="music-btn cyan" aria-label="音乐"><svg viewBox="0 0 24 24"><path d="M9 18V5l11-2v13" /><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg></button>
     </header>
 
     <section class="stage" id="stage">
-      <div class="stage3d" id="stage3d"></div>
-      <div class="fallback" id="fallback" hidden><div class="fb-die"></div><div class="fb-die"></div><div class="fb-die"></div></div>
-      <div class="cd">
-        <svg viewBox="0 0 120 120" class="cd-ring"><circle cx="60" cy="60" r="52" class="trk"/><circle cx="60" cy="60" r="52" class="bar" id="cdBar"/></svg>
-        <svg class="cd-clk" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 3h6M12 3v2"/></svg>
-        <div class="cd-num" id="cdNum">00:20</div>
-      </div>
-      <div class="status"><i></i><span id="status">请下注</span><i></i></div>
-      <div class="history" id="historyBar"><span class="h-lbl">走势</span><div class="h-list" id="history"></div></div>
-      <div class="banner" id="banner"></div>
+      <div class="slope"><i class="back-lip"></i><i class="rail l"><i class="gold"></i></i><i class="rail r"><i class="gold"></i></i></div>
+      <i class="post tl"></i><i class="post tr"></i><i class="post jl"></i><i class="post jr"></i><i class="post fl"></i><i class="post fr"></i>
+      <div class="seam"></div>
+      <div class="flat"><i class="felt"></i><i class="spot"></i><i class="reflect"></i><i class="ring" id="ring"></i></div>
+      <div class="bar" id="bar"><i class="knot"></i></div>
+      <div id="dice"></div>
+      <div id="fx"></div>
+      <div class="win3d" id="win3d"></div>
+      <div class="rope" id="rope"><i class="rope-line"></i><div class="handle" id="handle"><i></i></div></div>
+      <svg class="arrow" id="pullHint" viewBox="0 0 36 36"><path d="M18 4v20" /><path d="M8 18 L18 30 L28 18" /></svg>
       <div class="result-pop" id="resultPop"></div>
     </section>
 
-    <div class="ticker" id="ticker"><span class="tk-lbl"><i class="wave"></i>最新投注</span><ul id="feed"></ul><span class="tk-more">›</span></div>
-
-    <section class="board" id="board"></section>
-
-    <div class="chips" id="chips"></div>
-    <div class="actions">
-      <button class="act act-clear" id="btnClear"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>清空</button>
-      <button class="act act-repeat" id="btnRepeat"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-3-6.2M20 4v5h-5"/></svg>重复</button>
-      <button class="act act-ok" id="btnOk"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg>确认</button>
+    <div class="bottom">
+      <section class="board" id="board"></section>
+      <div class="chips" id="chips"></div>
+      <div class="actions">
+        <button class="act act-clear" id="btnClear"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>清空</button>
+        <button class="act act-repeat" id="btnRepeat"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-3-6.2M20 4v5h-5"/></svg>重复</button>
+        <button class="act act-ok" id="btnOk"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg>确认</button>
+      </div>
+      <nav class="bnav">
+        <button class="on"><svg viewBox="0 0 24 24"><path d="M12 2 21 7v10l-9 5-9-5V7z"/></svg>骰子投注</button>
+        <button id="navHist"><svg viewBox="0 0 24 24"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>开奖历史</button>
+        <button id="navFair"><svg viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>规则说明</button>
+        <button id="navMenu"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+      </nav>
     </div>
-    <nav class="bnav">
-      <button class="on"><svg viewBox="0 0 24 24"><path d="M12 2 21 7v10l-9 5-9-5V7z"/></svg>骰子投注</button>
-      <button id="navHist"><svg viewBox="0 0 24 24"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>开奖历史</button>
-      <button id="navFair"><svg viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>规则说明</button>
-      <button id="navMenu"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
-    </nav>
   </div>
 </section>
 
 <div id="sheet" class="sheet" hidden><div class="sheet-box"><button class="sheet-x" id="sheetX">✕</button><div id="sheetBody"></div></div></div>
 <div id="toast"></div>
 <script src="/o/sound.js?v=__V__"></script>
-<script type="module" src="/o/app.js?v=__V__"></script>
+<script src="/o/app.js?v=__V__"></script>
 </body>
 </html>

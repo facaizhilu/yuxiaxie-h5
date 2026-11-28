@@ -1,11 +1,11 @@
-// 鱼虾蟹 · 骰运星河  客户端（登录 + 科幻大厅），协议与服务器保持不变
+// 鱼虾蟹 · 骰运星河  客户端（登录 + 单人局：下注 → 确认 → 拉绳放骰）
 const $ = (s) => document.querySelector(s);
 const SND = window.SND;
 const SYMS = [
   { id: 'elephant', short: '大象', name: '星河象', cls: '' },
   { id: 'rabbit', short: '兔子', name: '瑞祥兔', cls: 'gold' },
   { id: 'carp', short: '锦鲤', name: '鸿运锦鲤', cls: 'red' },
-  { id: 'shrimp', short: '虾', name: '长寿虾', cls: 'teal' },
+  { id: 'tiger', short: '老虎', name: '威武虎', cls: 'amber' },
   { id: 'peacock', short: '孔雀', name: '孔雀开屏', cls: '' },
   { id: 'horse', short: '骏马', name: '骏马奔腾', cls: 'gold' },
 ];
@@ -19,13 +19,12 @@ const toObj = (arr) => { const o = {}; (arr || []).forEach((v, i) => { if (v) o[
 const hhmm = (t) => { const d = new Date(t); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`; };
 const retrigger = (el, c) => { el.classList.remove(c); void el.offsetWidth; el.classList.add(c); };
 
-const S = { round: 0, phase: 'idle', endAt: 0, offset: 0, balance: 0, chip: 100, me: '', pending: {}, mine: {},
-  lastBets: JSON.parse(localStorage.getItem('yxx_last') || '{}'), pools: {}, history: [], cd: false, T: null, phaseStart: 0, feedLog: [] };
+const S = { round: 0, phase: 'bet', offset: 0, balance: 0, chip: 100, me: '', pending: {}, mine: {},
+  lastBets: JSON.parse(localStorage.getItem('yxx_last') || '{}'), history: [], released: 0 };
 let token = localStorage.getItem('yxx_token') || '';
-let ws, sending = false, entered = false, stage = null, stageP = null;
+let ws, sending = false, entered = false, pulling = false;
 
-// 预取 3D 模块与图片
-const scenePromise = import('./scene.js?v='+(window.__V||'0')).catch((e) => { console.warn('scene load failed', e); return null; });
+// 预取图片
 const imgsPromise = Promise.all(SYMS.map((_, i) => new Promise((res) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(im); im.src = IMG(i); })));
 
 // ================= 防 iOS 缩放 / 版本检查 =================
@@ -127,7 +126,6 @@ board.innerHTML = SYMS.map((s, i) => `
     <div class="inner"><i class="plat"></i><img class="fig" src="${IMG(i)}" alt="${s.short}" draggable="false"></div>
     <div class="mine" id="mine${i}"></div>
     <div class="stack" id="stack${i}"></div>
-    <span class="pool"><i class="coin"></i><b id="pool${i}">0</b></span>
     <div class="lbl"><span class="nm">${s.name}</span></div>
     <div class="badge" id="badge${i}"></div>
   </button>`).join('');
@@ -135,9 +133,7 @@ const peds = [...board.querySelectorAll('.ped')];
 $('#chips').innerHTML = CHIPS.map((c) => `<button class="chip${c.g ? ' g' : ''}${c.v === S.chip ? ' sel' : ''}" data-v="${c.v}">${c.v >= 1000 ? '1K' : c.v}</button>`).join('');
 
 function renderBalance(bump) { $('#balance').textContent = fmt(S.balance); if (bump) retrigger($('.bal'), 'bump'); }
-function renderPed(i, pop) {
-  $('#pool' + i).textContent = kfmt(S.pools[i] || 0);
-  if (pop) retrigger($('#pool' + i).parentNode, 'pop');
+function renderPed(i) {
   const m = S.mine[i] || 0, p = S.pending[i] || 0, el = $('#mine' + i);
   el.classList.toggle('on', !!(m || p));
   el.innerHTML = (m ? kfmt(m) : '') + (p ? `<em>+${kfmt(p)}</em>` : '');
@@ -151,15 +147,8 @@ function renderPed(i, pop) {
 }
 function renderAll() { SYMS.forEach((_, i) => renderPed(i)); renderBalance(); updateOk(); }
 const histImgs = (r) => r.map((s) => `<img src="${IMG(s)}" alt="">`).join('');
-function renderHistory() { $('#history').innerHTML = S.history.slice(0, 10).map((r) => `<div class="h-item">${histImgs(r)}</div>`).join(''); }
 function updateOk() { $('#btnOk').classList.toggle('ready', sum(S.pending) > 0 && S.phase === 'bet'); }
-function pushFeed(sym, name, amt, cls) {
-  const li = document.createElement('li'); if (cls) li.className = cls;
-  li.innerHTML = `<img src="${IMG(sym)}" alt=""><span class="n">${esc(name)}</span><span class="a">${kfmt(amt)}</span>`;
-  const feed = $('#feed'); feed.prepend(li);
-  while (feed.children.length > 14) feed.lastChild.remove();
-  S.feedLog.unshift({ sym, name, amt, cls, t: Date.now() }); if (S.feedLog.length > 60) S.feedLog.pop();
-}
+function setRound(n) { S.round = n; $('#round').textContent = `第 ${n} 局`; }
 let toastT;
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 1600); }
 function flyChip(from, to, gold) {
@@ -168,35 +157,35 @@ function flyChip(from, to, gold) {
   el.className = 'fly-chip'; el.style.cssText = `left:${a.left + a.width / 2 - 12}px;top:${a.top + a.height / 2 - 12}px;background:radial-gradient(circle,#06121e 35%,${col} 36%);color:${col}`;
   document.body.appendChild(el);
   const dx = b.left + b.width / 2 - (a.left + a.width / 2) + (Math.random() * 30 - 15), dy = b.top + b.height * 0.45 - (a.top + a.height / 2);
-  el.animate([{ transform: 'translate(0,0) scale(1)' }, { transform: `translate(${dx / 2}px,${dy / 2 - 50}px) scale(1.25)`, offset: 0.5 }, { transform: `translate(${dx}px,${dy}px) scale(.6)`, opacity: 0.3 }], { duration: 420, easing: 'ease-in' }).onfinish = () => el.remove();
+  el.animate([{ transform: 'translate(0,0) scale(1)', opacity: 1 }, { transform: `translate(${dx * 0.5}px,${dy * 0.5 - 40}px) scale(1.1)`, opacity: 1, offset: 0.5 }, { transform: `translate(${dx}px,${dy}px) scale(.7)`, opacity: 0.2 }], { duration: 380, easing: 'cubic-bezier(.3,.7,.4,1)' }).onfinish = () => el.remove();
 }
 
-// ================= 操作 =================
+// ================= 下注操作 =================
 $('#chips').addEventListener('click', (e) => {
   const b = e.target.closest('.chip'); if (!b) return;
   S.chip = +b.dataset.v; document.querySelectorAll('.chip').forEach((c) => c.classList.toggle('sel', c === b)); SND.tap();
 });
+const canBet = () => { if (S.phase === 'show') resetRound(); if (S.phase !== 'bet') { toast('骰子已放下，请等待开奖'); return false; } return true; };
 board.addEventListener('click', (e) => {
-  const t = e.target.closest('.ped'); if (!t) return;
-  if (S.phase !== 'bet') return toast('已封盘，请等待下一回合');
+  const t = e.target.closest('.ped'); if (!t || !canBet()) return;
   const i = +t.dataset.i;
   if (sum(S.pending) + S.chip > S.balance) return toast('余额不足');
   S.pending[i] = (S.pending[i] || 0) + S.chip;
   flyChip(document.querySelector('.chip.sel'), t, S.chip >= 500);
-  SND.chip(); renderPed(i); updateOk();
+  SND.chip(); renderPed(i); updateOk(); hideHint();
   if (navigator.vibrate) navigator.vibrate(8);
 });
 board.addEventListener('pointerenter', (e) => { if (e.target.closest && e.target.closest('.ped') && matchMedia('(hover:hover)').matches) SND.hover(); }, true);
 $('#btnClear').addEventListener('click', () => { if (!sum(S.pending)) return toast('没有待确认的下注'); S.pending = {}; renderAll(); SND.clear(); });
 $('#btnRepeat').addEventListener('click', () => {
-  if (S.phase !== 'bet') return toast('已封盘，请等待下一回合');
-  if (!sum(S.lastBets)) return toast('上一回合没有下注');
+  if (!canBet()) return;
+  if (!sum(S.lastBets)) return toast('上一局没有下注');
   if (sum(S.lastBets) + sum(S.pending) > S.balance) return toast('余额不足');
   for (const k in S.lastBets) S.pending[k] = (S.pending[k] || 0) + S.lastBets[k];
   renderAll(); SND.repeat();
 });
 $('#btnOk').addEventListener('click', () => {
-  if (S.phase !== 'bet') return toast('已封盘，请等待下一回合');
+  if (!canBet()) return;
   const tot = sum(S.pending);
   if (!tot) return toast('请先选择筹码并点击图案下注');
   if (tot > S.balance) return toast('余额不足');
@@ -209,14 +198,12 @@ $('#btnOk').addEventListener('click', () => {
 function sheet(html) { $('#sheetBody').innerHTML = html; $('#sheet').hidden = false; SND.tap(); }
 $('#sheetX').addEventListener('click', () => { $('#sheet').hidden = true; });
 $('#sheet').addEventListener('click', (e) => { if (e.target.id === 'sheet') $('#sheet').hidden = true; });
-const showHist = () => sheet(`<h3>开奖历史</h3>${S.history.slice(0, 30).map((r, k) => `<div class="hrow"><span style="width:56px">#${S.round - k - (S.phase === 'bet' || S.phase === 'lock' ? 1 : 0)}</span>${histImgs(r)}<span>${r.map((s) => SYMS[s].short).join(' · ')}</span></div>`).join('') || '<p>暂无记录</p>'}`);
-$('#navHist').addEventListener('click', showHist);
-$('#ticker').addEventListener('click', () => sheet(`<h3>最新投注</h3>${S.feedLog.map((f) => `<div class="hrow"><img src="${IMG(f.sym)}" alt=""><b style="color:#e8f6ff;min-width:72px">${esc(f.name)}</b><span style="color:#ffe3a1;font-family:Orbitron,sans-serif">${fmt(f.amt)}</span><span style="margin-left:auto">${hhmm(f.t)}</span></div>`).join('') || '<p>暂无记录</p>'}`));
-$('#historyBar').addEventListener('click', showHist);
+$('#navHist').addEventListener('click', () => sheet(`<h3>开奖历史</h3>${S.history.slice(0, 30).map((r, k) => `<div class="hrow"><span style="width:56px">#${S.rounds - k}</span>${histImgs(r)}<span>${r.map((s) => SYMS[s].short).join(' · ')}</span></div>`).join('') || '<p>暂无记录</p>'}`));
 $('#navFair').addEventListener('click', () => sheet(`<h3>规则说明</h3><ul>
-  <li>每回合 ${S.T ? Math.round(S.T.bet / 1000) : 15} 秒下注，服务器摇出 3 颗骰子，每颗骰子六面分别是 6 种图案。</li>
+  <li>选择筹码，点击图案下注，再点「确认」。</li>
+  <li>拉下右侧拉绳放下骰子：轻拉放下一颗，用力拉到底放下全部。三颗骰子落定后开奖。</li>
   <li>押中的图案每出现 1 次，赔付 1 倍下注额并退还本金（出现 2 次赔 2 倍，3 次赔 3 倍）。</li>
-  <li>开奖结果由服务器加密随机数（crypto.randomInt）生成，所有玩家同一回合看到同一结果。</li>
+  <li>确认下注时服务器用加密随机数（crypto.randomInt）定下结果，每位玩家独立一局。</li>
   <li>本游戏仅使用虚拟演示币，不可充值、提现或兑换。</li></ul>`));
 $('#navMenu').addEventListener('click', () => {
   sheet(`<h3>菜单</h3><p>当前账号：<b>${esc(S.me)}</b></p><button class="menu-btn" id="mMusic">${SND.muted ? '开启音乐' : '关闭音乐'}</button><button class="menu-btn" id="mOut">退出登录</button>`);
@@ -224,85 +211,207 @@ $('#navMenu').addEventListener('click', () => {
   $('#mOut').onclick = () => { $('#sheet').hidden = true; logout(); };
 });
 
-// ================= 3D 舞台 =================
-async function ensureStage() {
-  if (stageP) return stageP;
-  stageP = (async () => {
-    const [mod, imgs] = await Promise.all([scenePromise, imgsPromise]);
-    try {
-      if (!mod) throw new Error('no module');
-      return await mod.createStage($('#stage3d'), imgs, {
-        onHit: (s, pan) => SND.hit(s, pan),
-        onCycle: (i, k) => SND.cycle(i, k),
-        onStop: (i, pan) => { SND.stop(i, pan); if (navigator.vibrate) navigator.vibrate(18); },
-        onLand: () => { SND.land(); if (navigator.vibrate) navigator.vibrate([20, 30, 20]); },
-      });
-    } catch (e) { console.warn('WebGL unavailable, fallback', e); return fallbackStage(); }
-  })();
-  stage = await stageP; return stage;
-}
-function fallbackStage() {
-  const fb = $('#fallback'); fb.hidden = false; const ds = [...fb.children];
-  const set = (r) => ds.forEach((d, k) => { d.innerHTML = `<img src="${IMG(r[k])}" alt="">`; });
-  return {
-    showIdle(r) { fb.classList.remove('spin'); if (r) set(r); }, lock() { fb.classList.add('spin'); },
-    roll(r) { fb.classList.add('spin'); setTimeout(() => { fb.classList.remove('spin'); set(r); SND.land(); }, 2600); },
-    reveal(r) { fb.classList.remove('spin'); set(r); }, resize() {},
-  };
-}
-const withStage = (fn) => { if (stage) fn(stage); else ensureStage().then(fn); };
+// ================= 斜坡舞台（CSS 3D 骰子） =================
+const stageEl = $('#stage'), diceBox = $('#dice'), fxBox = $('#fx'), barEl = $('#bar'), ropeEl = $('#rope'), handleEl = $('#handle'), hintEl = $('#pullHint');
+const FACES = ['ft', 'ff', 'fr', 'fl', 'fb', 'fk'];
+const RF = { ft: [0, 0], ff: [90, 0], fb: [-90, 0], fk: [180, 0], fr: [0, -90], fl: [0, 90] };   // 把该面转到正上方
+const PERM = [[0, 2, 5, 1, 4, 3], [1, 3, 4, 2, 5, 0], [5, 0, 2, 3, 1, 4]];                      // 每颗骰子 6 面的图案
+const STY = [
+  { base: ['#f4f6fa', '#9aa3b2'], rim: '#7fe9ff', medal: ['#1b2633', '#0a1018'] },
+  { base: ['#9a1a28', '#2e050a'], rim: '#ffcf7a', medal: ['#3a0a10', '#120204'] },
+  { base: ['#ffe3a0', '#a8741e'], rim: '#fff2c4', medal: ['#3a2508', '#140b02'] },
+];
+const TILT = -26;
+let G = {}, faceURL = [[], [], []];
+const D = [0, 1, 2].map((i) => ({ i, state: 'held', yaw: 18 + i * 3, el: null, ghosts: [] }));
 
-// ================= 阶段 =================
-function setStatus(t) { $('#status').textContent = t; }
-function setPhase(p, endAt) { S.phase = p; S.endAt = endAt; S.phaseStart = Date.now() + S.offset; board.classList.toggle('locked', p !== 'bet'); updateOk(); }
-function enterBet(m) {
-  S.round = m.round; $('#round').textContent = `第 ${S.round} 回合`;
-  S.pools = toObj(m.pools); S.mine = {}; S.pending = {}; S.cd = false;
-  peds.forEach((t) => t.classList.remove('win', 'dim'));
-  $('#resultPop').classList.remove('go'); setStatus('请下注');
-  SND.phase('bet'); SND.start();
-  withStage((s) => s.showIdle(S.history[0]));
-  renderAll();
+function faceImg(img, st) {
+  const S2 = 256, k = S2 / 320, cv = document.createElement('canvas'); cv.width = cv.height = S2; const g = cv.getContext('2d');
+  const bg = g.createRadialGradient(S2 * 0.35, S2 * 0.3, 10 * k, S2 / 2, S2 / 2, S2 * 0.75); bg.addColorStop(0, st.base[0]); bg.addColorStop(1, st.base[1]);
+  g.fillStyle = bg; g.fillRect(0, 0, S2, S2);
+  g.strokeStyle = st.rim; g.globalAlpha = 0.55; g.lineWidth = 4 * k; g.strokeRect(18 * k, 18 * k, S2 - 36 * k, S2 - 36 * k); g.globalAlpha = 1;
+  const md = g.createRadialGradient(S2 / 2, S2 / 2, 20 * k, S2 / 2, S2 / 2, S2 * 0.4); md.addColorStop(0, st.medal[0]); md.addColorStop(1, st.medal[1]);
+  g.beginPath(); g.arc(S2 / 2, S2 / 2, S2 * 0.38, 0, 7); g.fillStyle = md; g.fill();
+  g.lineWidth = 5 * k; g.strokeStyle = st.rim; g.stroke();
+  g.save(); g.beginPath(); g.arc(S2 / 2, S2 / 2, S2 * 0.36, 0, 7); g.clip();
+  const r = S2 * 0.64; try { g.drawImage(img, (S2 - r) / 2, (S2 - r) / 2, r, r); } catch (_) {} g.restore();
+  return cv.toDataURL('image/png');
 }
-function enterLock() {
-  if (sum(S.pending)) { toast('未确认的下注已取消'); S.pending = {}; renderAll(); }
-  setStatus('停止下注'); $('#banner').textContent = '停止下注'; retrigger($('#banner'), 'go');
-  SND.phase('lock'); SND.lock();
-  withStage((s) => s.lock());
+function cubeHTML(i) { return '<i class="die-sh"></i><div class="die">' + FACES.map((f, k) => `<i class="f ${f}" style="background-image:url(${faceURL[i][PERM[i][k]]})"></i>`).join('') + '</div>'; }
+function buildDice() {
+  diceBox.innerHTML = '';
+  D.forEach((d) => {
+    d.ghosts = [0, 1].map((k) => { const g = document.createElement('div'); g.className = 'die-wrap ghost g' + k; g.innerHTML = cubeHTML(d.i); diceBox.appendChild(g); return g; });
+    d.el = document.createElement('div'); d.el.className = 'die-wrap'; d.el.innerHTML = cubeHTML(d.i); diceBox.appendChild(d.el);
+  });
 }
-function enterRoll(result, left) {
-  setStatus('开奖中');
-  const total = (S.T && S.T.roll) || 7500;
-  if (left < 2300) { withStage((s) => s.reveal(result)); return; }
-  const elapsed = Math.max(0, total - left) / 1000;
-  SND.phase('roll'); if (elapsed < 1) SND.roll();
-  withStage((s) => s.roll(result, elapsed));
+function layout() {
+  const W = stageEl.clientWidth, H = stageEl.clientHeight; if (!W || !H) return;
+  const ds = Math.round(Math.min(56, W * 0.135, H * 0.15));
+  const barY = Math.round(Math.max(H * 0.3, 54 + ds + 12));
+  const handleY = Math.round(Math.min(barY + H * 0.36, H - 70));
+  G = { W, H, ds, barY, holdY: barY - ds / 2 - 3, edgeY: H * 0.58, landY: H * 0.79, hx: [0.32, 0.5, 0.68].map((f) => W * f),
+    lx: [0.25, 0.5, 0.75].map((f) => W * f), handleY, D: Math.max(50, Math.min(H * 0.3, H - handleY - 24)), lift: 0, drag: 0 };
+  stageEl.style.setProperty('--ds', ds + 'px'); stageEl.style.setProperty('--barY', barY + 'px');
+  hintEl.style.top = (handleY + 26) + 'px';
+  drawRope(); D.forEach((d) => { if (d.state !== 'roll') place(d); });
 }
-function enterShow(m) {
-  SND.phase('show'); SND.reveal();
-  const r = m.result, cnt = m.counts;
-  setStatus('开奖结果');
-  withStage((s) => s.reveal(r));
-  peds.forEach((t, i) => { if (cnt[i]) { t.classList.add('win'); $('#badge' + i).textContent = '×' + cnt[i]; } else t.classList.add('dim'); });
-  S.balance = m.balance;
-  const win = m.myWin, bet = m.myBet, pop = $('#resultPop');
-  const names = [...new Set(r)].map((s) => SYMS[s].short + (cnt[s] > 1 ? '×' + cnt[s] : '')).join(' · ');
-  if (win > 0) {
-    renderBalance(true);
-    pop.className = 'result-pop win'; pop.innerHTML = `+${fmt(win)}<small>${names}</small>`;
-    SND.win(win - bet >= bet * 2 || win >= 10000);
-  } else {
-    renderBalance();
-    pop.className = 'result-pop lose'; pop.innerHTML = `${bet ? '本局未中奖' : '开奖结果'}<small>${names}</small>`;
-    if (bet) SND.lose();
+function drawRope() {
+  const top = G.barY - G.lift, hy = G.handleY + G.drag;
+  barEl.style.transform = `translateY(${-G.lift}px)`;
+  ropeEl.style.top = top + 'px'; ropeEl.style.height = (hy - top) + 'px';
+}
+function tf(x, y, sc, yaw, ax, az, face) {
+  const [rx, rz] = RF[face];
+  return [`translate3d(${x - G.ds / 2}px,${y - G.ds / 2}px,0) scale(${sc})`, `rotateX(${TILT}deg) rotateY(${yaw}deg) rotateX(${ax}deg) rotateZ(${az}deg) rotateX(${rx}deg) rotateZ(${rz}deg)`];
+}
+function apply(el, t) { el.style.transform = t[0]; el.firstChild.nextSibling.style.transform = t[1]; }
+function place(d) {
+  if (d.state === 'landed') apply(d.el, tf(d.lx, d.ly, 1.16, d.yawF, 0, 0, d.face));
+  else apply(d.el, tf(G.hx[d.i], G.holdY, 1, d.yaw, 0, 0, 'ft'));
+  d.ghosts.forEach((g) => { g.style.opacity = 0; });
+  d.el.style.opacity = 1;
+}
+// 骰子运动：沿斜坡加速滚下 → 冲出坡边落到平台 → 弹跳两次 → 停稳（结果面朝上）
+const T_ROLL = 1.9, P_EDGE = 0.5, SEG = [0, 0.42, 0.7, 0.88, 1], AMP = [0.075, 0.032, 0.012, 0];
+function motion(d, t) {
+  const p = Math.max(0, Math.min(1, t / T_ROLL));
+  let s, hop = 0, seg = -1;
+  if (p < P_EDGE) { const q = p / P_EDGE; s = 0.58 * q * q; hop = Math.abs(Math.sin(q * Math.PI * 3)) * G.H * 0.012 * q; }
+  else {
+    const q = (p - P_EDGE) / (1 - P_EDGE); s = 0.58 + 0.42 * (1 - Math.pow(1 - q, 2.2));
+    for (let k = 0; k < 4; k++) if (q >= SEG[k] && q < SEG[k + 1]) { seg = k; hop = Math.sin((q - SEG[k]) / (SEG[k + 1] - SEG[k]) * Math.PI) * AMP[k] * G.H; }
+    if (q >= 1) seg = 4;
   }
+  const x0 = G.hx[d.i], y0 = G.holdY, ye = G.edgeY - G.ds * 0.3;
+  const x = x0 + (d.lx - x0) * s, yBase = s < 0.58 ? y0 + (ye - y0) * (s / 0.58) : ye + (d.ly - ye) * ((s - 0.58) / 0.42);
+  const e = 1 - Math.pow(1 - p, 1.7);
+  return { tr: tf(x, yBase - hop, 1 + 0.16 * s, d.yaw + (d.yawF - d.yaw) * e, d.ax0 * (1 - e), d.az0 * (1 - e), d.face), seg, x, y: yBase };
+}
+let rafOn = false, onAllLanded = null;
+function loop() {
+  const now = performance.now() / 1000; let any = false;
+  for (const d of D) {
+    if (d.state !== 'roll') continue; any = true;
+    const t = now - d.t0; if (t < 0) continue;
+    const m = motion(d, t); apply(d.el, m.tr);
+    d.ghosts.forEach((g, k) => { const lag = 0.045 * (k + 1), mg = motion(d, t - lag); apply(g, mg.tr); g.style.opacity = t > T_ROLL * 0.85 || t < lag ? 0 : (k ? 0.16 : 0.32); });
+    if (m.seg > d.seg) {
+      if (m.seg >= 1 && m.seg <= 3) { const st = [1, 0.55, 0.3][m.seg - 1]; SND.bounce(st, (m.x / G.W - 0.5) * 1.4); impact(m.x, m.y + G.ds * 0.45, st); if (m.seg === 1 && navigator.vibrate) navigator.vibrate(15); }
+      d.seg = m.seg;
+    }
+    if (t >= T_ROLL) { d.state = 'landed'; place(d); dieDone(); }
+  }
+  if (any) requestAnimationFrame(loop); else rafOn = false;
+}
+function impact(x, y, st) {
+  const r = document.createElement('i'); r.className = 'fx-ring'; r.style.cssText = `left:${x}px;top:${y}px;--s:${0.6 + st}`; fxBox.appendChild(r);
+  for (let k = 0; k < Math.round(4 + st * 8); k++) {
+    const sp = document.createElement('i'); sp.className = 'spark' + (k % 3 ? '' : ' c');
+    const a = Math.PI * (1.05 + Math.random() * 0.9), v = (24 + Math.random() * 46) * (0.5 + st);
+    sp.style.cssText = `left:${x}px;top:${y}px;--dx:${Math.cos(a) * v}px;--dy:${Math.sin(a) * v * 0.7}px`; fxBox.appendChild(sp);
+  }
+  setTimeout(() => { fxBox.innerHTML = ''; }, 800);
+}
+function rollDie(i, sym, delay) {
+  const d = D[i], face = FACES[PERM[i].indexOf(sym)], [rx, rz] = RF[face], sg = Math.random() < 0.5 ? -1 : 1;
+  Object.assign(d, { state: 'roll', face, seg: 0, t0: performance.now() / 1000 + delay, lx: G.lx[i] + (Math.random() - 0.5) * G.W * 0.04, ly: G.landY + (i === 1 ? 0.03 : -0.01) * G.H + (Math.random() - 0.5) * G.H * 0.03,
+    yawF: (Math.random() < 0.5 ? -1 : 1) * (14 + Math.random() * 20), ax0: 1080 + 360 * Math.floor(Math.random() * 2) - rx, az0: 360 * sg - rz, sym });
+  setTimeout(() => SND.rollDie((G.hx[i] / G.W - 0.5) * 1.2), delay * 1000);
+  if (!rafOn) { rafOn = true; requestAnimationFrame(loop); }
+}
+function landInstant(i, sym) {
+  const d = D[i]; d.face = FACES[PERM[i].indexOf(sym)]; d.state = 'landed'; d.lx = G.lx[i]; d.ly = G.landY; d.yawF = 20; d.sym = sym; place(d);
+}
+let pendingSettle = null;
+function dieDone() {
+  if (D.some((d) => d.state === 'roll')) return;
+  if (pendingSettle) { const m = pendingSettle; pendingSettle = null; setTimeout(() => showResult(m), 300); }
+  else { pulling = false; if (S.released < 3) { lowerBar(); armHint(); } }
+}
+
+// 横杠：放骰时竖直抬起，剩余骰子时放回
+function liftBar(px) { animLift(px); }
+function lowerBar() { animLift(0); }
+let liftAnim = null;
+function animLift(to) {
+  cancelAnimationFrame(liftAnim); const from = G.lift, t0 = performance.now();
+  const f = (n) => { const k = Math.min(1, (n - t0) / 220); G.lift = from + (to - from) * (1 - Math.pow(1 - k, 3)); drawRope(); if (k < 1) liftAnim = requestAnimationFrame(f); };
+  liftAnim = requestAnimationFrame(f);
+}
+
+// ================= 拉绳（触屏 / 鼠标拖动把手） =================
+let drag = null;
+const LIGHT = 16;
+function canPull(quiet) {
+  if (pulling || S.phase === 'show') return false;
+  if (!sum(S.mine)) { if (!quiet) toast(sum(S.pending) ? '请先点击「确认」下注' : '请先下注并确认'); return false; }
+  return S.released < 3;
+}
+ropeEl.addEventListener('pointerdown', (e) => {
+  if (drag) return; e.preventDefault();
+  drag = { y0: e.clientY, lv: 0, id: e.pointerId }; ropeEl.setPointerCapture(e.pointerId); hideHint(); SND.grab(); SND.tryResume();
+});
+ropeEl.addEventListener('pointermove', (e) => {
+  if (!drag || e.pointerId !== drag.id) return;
+  const d = Math.max(0, Math.min(G.D, e.clientY - drag.y0)); G.drag = d;
+  if (!pulling) G.lift = Math.min(6, d * 0.06);
+  const lv = d >= G.D * 0.82 ? 2 : d >= LIGHT ? 1 : 0;
+  if (lv > drag.lv) { SND.notch(lv); if (navigator.vibrate) navigator.vibrate(lv === 2 ? 20 : 8); }
+  drag.lv = lv; drawRope();
+});
+function endDrag(e) {
+  if (!drag || (e && e.pointerId !== drag.id)) return;
+  const lv = drag.lv; drag = null;
+  const from = G.drag, t0 = performance.now();
+  const f = (n) => { const k = Math.min(1, (n - t0) / 260); G.drag = from * Math.pow(1 - k, 3) * (1 + 0.15 * Math.sin(k * 9)); if (!pulling && G.lift < 8) G.lift = Math.max(0, G.lift * (1 - k)); drawRope(); if (k < 1) requestAnimationFrame(f); else { G.drag = 0; drawRope(); } };
+  requestAnimationFrame(f);
+  SND.ropeBack();
+  if (lv && canPull()) doPull(lv === 2 ? 3 : 1); else armHint();
+}
+ropeEl.addEventListener('pointerup', endDrag); ropeEl.addEventListener('pointercancel', endDrag);
+function doPull(n) {
+  if (!ws || ws.readyState !== 1) return toast('网络连接中，请稍候');
+  pulling = true; ws.send(JSON.stringify({ t: 'pull', n }));
+}
+window.__pull = (n) => { if (canPull()) { SND.ropeBack(); doPull(n); } };   // 调试 / 自动化测试用
+
+// 拉绳提示箭头：玩家一段时间没拉才出现，每 2 秒弹两下（暗→亮）
+let hintT;
+function hideHint() { clearTimeout(hintT); hintEl.classList.remove('on'); }
+function armHint() { hideHint(); if (!canPull(true)) return; hintT = setTimeout(() => { if (canPull(true) && !drag) hintEl.classList.add('on'); }, 4000); }
+
+// ================= 回合流程 =================
+function onDrop(m) {
+  hideHint(); SND.release(); liftBar(Math.round(G.ds * 0.85));
+  S.phase = 'drop'; board.classList.add('locked'); updateOk();
+  m.drops.forEach((d, k) => { S.released = Math.max(S.released, d.i + 1); rollDie(d.i, d.s, 0.12 + k * 0.32); });
+  if (m.done) pendingSettle = m;
+}
+function showResult(m) {
+  const r = m.result, cnt = m.counts;
+  S.phase = 'show'; pulling = false;
+  SND.reveal();
+  $('#win3d').innerHTML = r.map((s, k) => `<div class="mw" style="--k:${k}"><div class="medal"><i class="edge"></i><div class="face"><img src="${IMG(s)}" alt=""></div><i class="shine"></i></div><span class="nm">${SYMS[s].short}</span></div>`).join('');
+  retrigger($('#win3d'), 'go'); $('#ring').classList.add('hot');
+  peds.forEach((t, i) => { if (cnt[i]) { t.classList.add('win'); $('#badge' + i).textContent = '×' + cnt[i]; } else t.classList.add('dim'); });
+  S.balance = m.balance; S.mine = toObj(m.bets);
+  const win = m.myWin, bet = m.myBet, pop = $('#resultPop');
+  if (win > 0) { renderBalance(true); pop.className = 'result-pop win'; pop.innerHTML = `+${fmt(win)}`; SND.win(win - bet >= bet * 2 || win >= 10000); }
+  else { renderBalance(); pop.className = 'result-pop lose'; pop.innerHTML = '本局未中奖'; SND.lose(); }
   retrigger(pop, 'go');
-  (m.winners || []).slice(0, 5).forEach((w, k) => setTimeout(() => {
-    const top = r.find((s) => cnt[s]) ?? r[0];
-    pushFeed(top, (w.name === S.me ? '我' : w.name) + ' 赢', w.win, 'win' + (w.name === S.me ? ' me' : ''));
-  }, 600 + k * 450));
-  if (bet) { S.lastBets = { ...S.mine }; localStorage.setItem('yxx_last', JSON.stringify(S.lastBets)); }
-  S.history.unshift(r); renderHistory();
+  S.lastBets = { ...S.mine }; localStorage.setItem('yxx_last', JSON.stringify(S.lastBets));
+  S.history.unshift(r); S.rounds = (S.rounds || 0) + 1;
+  clearTimeout(resetT); resetT = setTimeout(resetRound, 5200);
+}
+let resetT;
+function resetRound() {
+  clearTimeout(resetT);
+  S.phase = 'bet'; S.released = 0; S.mine = {}; pulling = false; pendingSettle = null;
+  peds.forEach((t) => t.classList.remove('win', 'dim')); board.classList.remove('locked');
+  $('#win3d').classList.remove('go'); $('#win3d').innerHTML = ''; $('#ring').classList.remove('hot'); $('#resultPop').classList.remove('go');
+  D.forEach((d) => { d.state = 'held'; d.yaw = 16 + Math.random() * 10; place(d); retrigger(d.el, 'back'); });
+  lowerBar(); setRound(S.round + 1); renderAll(); SND.start();
 }
 
 // ================= WebSocket =================
@@ -310,34 +419,22 @@ function onMsg(m) {
   if (m.now) S.offset = m.now - Date.now();
   switch (m.t) {
     case 'auth': toast(m.error); logout(); break;
-    case 'state': {
+    case 'state':
       S.me = m.me.name; S.balance = m.me.balance; $('#meName').textContent = S.me;
-      S.history = m.history || []; renderHistory(); if (m.T) S.T = m.T;
-      $('#online').textContent = fmt(m.online);
-      S.round = m.round; $('#round').textContent = `第 ${m.round} 回合`;
-      S.pools = toObj(m.pools); S.mine = toObj(m.myBets);
-      setPhase(m.phase, m.endAt); SND.phase(m.phase);
-      setStatus({ bet: '请下注', lock: '停止下注', roll: '开奖中', show: '开奖结果' }[m.phase] || '请下注');
-      withStage((s) => { if (m.phase === 'lock') s.lock(); else if ((m.phase === 'roll' || m.phase === 'show') && m.result) s.reveal(m.result); else s.showIdle(S.history[0]); });
-      renderAll(); break;
-    }
-    case 'phase':
-      setPhase(m.phase, m.endAt);
-      if (m.phase === 'bet') enterBet(m);
-      else if (m.phase === 'lock') enterLock();
-      else if (m.phase === 'roll') enterRoll(m.result, m.endAt - m.now);
-      else if (m.phase === 'show') enterShow(m);
-      break;
-    case 'bet': {
-      S.pools[m.sym] = m.pool; const mine = m.name === S.me;
-      pushFeed(m.sym, mine ? '我' : m.name, m.amt, mine ? 'me' : '');
-      renderPed(m.sym, true); break;
-    }
+      S.history = m.history || []; S.rounds = m.rounds || 0; setRound(m.round);
+      if (S.phase !== 'show' && !D.some((d) => d.state === 'roll')) {
+        S.mine = toObj(m.myBets); S.released = m.released || 0;
+        S.phase = S.released ? 'drop' : 'bet'; board.classList.toggle('locked', !!S.released);
+        D.forEach((d, i) => { if (i < S.released) landInstant(i, m.landed[i]); else { d.state = 'held'; place(d); } });
+        G.lift = 0; drawRope();
+      }
+      renderAll(); armHint(); break;
     case 'betok':
-      sending = false; S.balance = m.balance; S.mine = toObj(m.myBets); S.pending = {};
-      renderAll(); renderBalance(true); SND.confirm(); toast(`下注成功 ${fmt(m.total)}`); break;
+      sending = false; S.balance = m.balance; S.mine = toObj(m.myBets); S.pending = {}; setRound(m.round);
+      renderAll(); renderBalance(true); SND.confirm(); toast(`下注成功 ${fmt(m.total)}`); armHint(); break;
     case 'betfail': sending = false; S.balance = m.balance; renderBalance(); toast(m.error); break;
-    case 'online': $('#online').textContent = fmt(m.n); break;
+    case 'drop': onDrop(m); break;
+    case 'pullfail': pulling = false; toast(m.error); armHint(); break;
   }
 }
 let retry = 0;
@@ -346,38 +443,19 @@ function connect() {
   ws = new WebSocket(`${proto}://${location.host}/ws?token=${encodeURIComponent(token)}`);
   ws.onopen = () => { retry = 0; };
   ws.onmessage = (e) => { try { onMsg(JSON.parse(e.data)); } catch (err) { console.warn(err); } };
-  ws.onclose = () => { sending = false; if (!token || !entered) return; setTimeout(connect, Math.min(5000, 500 * 2 ** retry++)); };
+  ws.onclose = () => { sending = false; pulling = false; if (!token || !entered) return; setTimeout(connect, Math.min(5000, 500 * 2 ** retry++)); };
 }
-
-// 倒计时环（rAF 驱动，只在数值变化时写 DOM）
-const CIRC = 326.7;
-let lastTxt = '', lastOff = '', lastUrg = null, lastGold = null, lastHide = null;
-const cdEl = document.querySelector('.cd'), cdNum = $('#cdNum'), cdBar = $('#cdBar');
-function tick() {
-  requestAnimationFrame(tick);
-  if (!entered) return;
-  const now = Date.now() + S.offset, left = Math.max(0, S.endAt - now);
-  const dur = S.T && S.T[S.phase] ? S.T[S.phase] : (S.phase === 'bet' ? 20000 : 5000);
-  const txt = S.phase === 'bet' ? `00:${String(Math.ceil(left / 1000)).padStart(2, '0')}` : ({ lock: '封盘', roll: '开奖', show: '结果' }[S.phase] || '--');
-  if (txt !== lastTxt) { cdNum.textContent = txt; lastTxt = txt; }
-  const off = (CIRC * (1 - Math.min(1, left / dur))).toFixed(1);
-  if (off !== lastOff) { cdBar.style.strokeDashoffset = off; lastOff = off; }
-  const urgent = S.phase === 'bet' && left <= 3000, gold = S.phase !== 'bet', hide = S.phase === 'show';
-  if (urgent !== lastUrg) { cdEl.classList.toggle('urgent', urgent); lastUrg = urgent; }
-  if (gold !== lastGold) { cdEl.classList.toggle('gold', gold); lastGold = gold; }
-  if (hide !== lastHide) { cdEl.classList.toggle('hide', hide); lastHide = hide; }
-  if (urgent && !S.cd && left > 200) { S.cd = true; SND.countdown(left / 1000); }
-}
-requestAnimationFrame(tick);
 
 async function enter() {
   if (entered) return; entered = true;
   $('#login').hidden = true; $('#lobby').hidden = false; syncMusicIcons();
   SND.music('lobby'); SND.tryResume();
-  renderAll(); renderHistory();
-  ensureStage().then((s) => { s.resize && s.resize(); });
+  const imgs = await imgsPromise;
+  faceURL = STY.map((st) => imgs.map((im) => faceImg(im, st)));
+  buildDice(); layout(); renderAll();
   connect();
 }
+addEventListener('resize', () => { if (entered) layout(); });
 function logout() {
   if (token) fetch('/api/logout', { method: 'POST', headers: { Authorization: 'Bearer ' + token } }).catch(() => {});
   token = ''; localStorage.removeItem('yxx_token'); entered = false;

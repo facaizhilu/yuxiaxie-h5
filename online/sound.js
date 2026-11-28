@@ -84,11 +84,22 @@ window.SND = (function () {
       play('diceThrow2', { v: 0.55, at: 0.03, pan, rate: 1.1 });
     },
     land() { play('land', { v: 1 }); play('dieThrow1', { v: 0.9, rate: 0.8 }); play('diceThrow1', { v: 0.7, at: 0.04, rate: 0.9 }); },
-    reveal() { duck(0.3, 0.1); play('reveal', { v: 0.9 }); },
+    reveal() { duck(0.3, 0.1); play('reveal', { v: 0.9 }); setTimeout(() => duck(1, 1.2), 4500); },
     win(big) {
       if (big) { play('bigwin', { v: 1, at: 0.5 }); for (let i = 0; i < 30; i++) play(pick(['handleCoins', 'handleCoins2', 'chipsCollide1', 'chipsCollide2']), { v: rnd(0.3, 0.65), at: 1 + Math.pow(Math.random(), 0.8) * 3.4, rate: rnd(0.95, 1.45), pan: rnd(-0.8, 0.8) }); }
       else { play('win', { v: 1, at: 0.45 }); for (let i = 0; i < 6; i++) play(pick(['handleCoins2', 'chipsCollide1']), { v: rnd(0.35, 0.6), at: 0.8 + i * 0.12, rate: rnd(1, 1.4) }); }
     },
     lose() { play('lose', { v: 0.8, at: 0.55 }); },
+    // —— 拉绳放骰 ——
+    grab() { play('tap', { v: 0.45, rate: 0.7 }); },
+    notch(lv) { play('tick', { v: lv === 2 ? 0.8 : 0.5, rate: lv === 2 ? 0.75 : 1.1 }); if (lv === 2) play('chipsHandle1', { v: 0.4, rate: 0.7 }); },
+    ropeBack() { play('chipsCollide1', { v: 0.3, rate: 0.6 }); },
+    release() { duck(0.45, 0.15); play('lock', { v: 0.9, rate: 1.15 }); play('hit', { v: 0.35, rate: 1.6, at: 0.02 }); },
+    rollDie(pan) { play(pick(['dieShuffle1', 'dieShuffle2']), { v: 0.6, pan, rate: rnd(1, 1.2) }); play(pick(['diceThrow1', 'diceThrow2']), { v: 0.45, pan, at: 0.35, rate: rnd(0.95, 1.15) }); },
+    bounce(st, pan) {
+      play('hit', { v: Math.min(1, 0.3 + st * 0.7), pan, rate: rnd(0.85, 1.1) });
+      play(pick(['dieThrow1', 'dieThrow2', 'dieThrow3']), { v: Math.min(1, 0.25 + st * 0.75), pan, rate: rnd(0.9, 1.1) });
+      if (st >= 1) play('land', { v: 0.55, pan });
+    },
   };
 })();
