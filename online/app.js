@@ -58,9 +58,13 @@ function syncMusicIcons() {
 }
 SND.onState(syncMusicIcons);
 SND.music('login');
-SND.tryResume().then(syncMusicIcons);
-const unlock = () => { if (SND.muted) return; SND.tryResume().then(syncMusicIcons); };
-['pointerdown', 'keydown', 'touchstart'].forEach((ev) => document.addEventListener(ev, unlock, { capture: true, passive: true }));
+SND.unlock();
+syncMusicIcons();
+const unlock = () => { if (!SND.muted) SND.unlock(); syncMusicIcons(); };
+['touchstart', 'touchend', 'pointerdown', 'click', 'keydown'].forEach((ev) => {
+  document.addEventListener(ev, unlock, { capture: true, passive: true });
+  window.addEventListener(ev, unlock, { capture: true, passive: true });
+});
 function musicBtn(e) {
   e.stopPropagation();
   SND.toggle(); setTimeout(syncMusicIcons, 50);

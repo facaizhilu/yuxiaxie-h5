@@ -28,12 +28,88 @@ window.SND = (function () {
     sfx = ctx.createGain(); sfx.gain.value = 0.9; sfx.connect(master);
     ctx.onstatechange = () => onState(ctx.state);
     Object.keys(raw).forEach(dec);
-    document.addEventListener('visibilitychange', () => { if (document.hidden) ctx.suspend(); else if (unlocked) ctx.resume(); });
   }
-  let unlocked = false;
-  function tryResume() { init(); if (!ctx) return Promise.resolve(false); return ctx.resume().then(() => { unlocked = ctx.state === 'running'; return unlocked; }).catch(() => false); }
+  let unlocked = false, duckLevel = 1;
+
+  function makeBgm(name) {
+    const a = new Audio(URLS[name]);
+    a.preload = 'auto';
+    a.loop = true;
+    a.playsInline = true;
+    a.setAttribute('playsinline', '');
+    a.setAttribute('webkit-playsinline', '');
+    a.crossOrigin = 'anonymous';
+    a.volume = 0;
+    try { a.load(); } catch (_) {}
+    return a;
+  }
+  const bgmEl = { login: makeBgm('login'), lobby: makeBgm('lobby') };
+  Object.keys(bgmEl).forEach((n) => {
+    const a = bgmEl[n];
+    const retry = () => { if (!muted && want && want.name === n && unlocked) kickEl(a, volFor(n)); };
+    a.addEventListener('canplay', retry);
+    a.addEventListener('loadeddata', retry);
+  });
+
+  function volFor(name) { return muted ? 0 : (name === 'login' ? 0.6 : 0.34) * duckLevel; }
+  function currentEl() { return (want && bgmEl[want.name]) || bgmEl.login; }
+  function applyVol() { Object.keys(bgmEl).forEach((n) => { bgmEl[n].volume = (want && want.name === n) ? volFor(n) : 0; }); }
+  function kickEl(a, vol) {
+    if (!a) return;
+    try { a.muted = false; a.volume = vol; } catch (_) {}
+    const p = a.play();
+    if (p && p.catch) p.catch(() => {});
+  }
+  function elementPlaying() { const a = currentEl(); return !!(a && !a.paused && !a.ended); }
+  function isPlaying() { return elementPlaying() || (!!ctx && ctx.state === 'running' && !!track); }
+
+  // Prime every BGM element during a gesture so later track switches need no second unlock.
+  function primeAll() {
+    Object.keys(bgmEl).forEach((n) => {
+      const a = bgmEl[n];
+      if (want && want.name === n && !muted) { kickEl(a, volFor(n)); return; }
+      const prev = a.volume;
+      a.volume = 0;
+      const p = a.play();
+      if (p && p.then) p.then(() => { try { a.pause(); a.currentTime = 0; } catch (_) {} a.volume = prev; }).catch(() => {});
+      else { try { a.pause(); } catch (_) {} a.volume = prev; }
+    });
+  }
+
+  function unlock() {
+    init();
+    if (ctx) {
+      const p = ctx.resume();
+      if (p && p.then) p.then(() => { unlocked = ctx.state === 'running'; if (unlocked && !elementPlaying() && want) startTrack(); }).catch(() => {});
+      if (ctx.state === 'running') unlocked = true;
+    }
+    if (!want) want = { name: 'login', vol: 0.6 };
+    primeAll();
+    if (!muted) kickEl(currentEl(), volFor(want.name));
+    if (elementPlaying() || (ctx && ctx.state === 'running')) unlocked = true;
+    return isPlaying();
+  }
+  function tryResume() {
+    const ok = unlock();
+    return Promise.resolve(ok);
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { if (ctx) ctx.suspend(); return; }
+    if (unlocked && !muted) { if (ctx) ctx.resume(); kickEl(currentEl(), volFor(want ? want.name : 'login')); }
+  });
+
+  const GESTURES = ['touchstart', 'touchend', 'pointerdown', 'click', 'keydown'];
+  const onGesture = () => { if (!muted && !isPlaying()) unlock(); };
+  GESTURES.forEach((ev) => {
+    document.addEventListener(ev, onGesture, { capture: true, passive: true });
+    window.addEventListener(ev, onGesture, { capture: true, passive: true });
+  });
+  // Page-load autoplay attempt (may succeed on Android/Chrome with media engagement).
+  setTimeout(() => { if (!muted) unlock(); }, 0);
 
   function startTrack() {
+    if (elementPlaying()) return;
     if (!ctx || !want || !bufs[want.name]) return;
     if (track && track.name === want.name) return;
     const now = ctx.currentTime;
@@ -50,14 +126,40 @@ window.SND = (function () {
     if (o.pan && ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = o.pan; g.connect(p); p.connect(sfx); } else g.connect(sfx);
     s.start(ctx.currentTime + (o.at || 0), o.offset || 0);
   }
-  const duck = (l, tc = 0.2) => { if (duckG) duckG.gain.setTargetAtTime(l, ctx.currentTime, tc); };
+  const duck = (l, tc = 0.2) => { duckLevel = l; if (duckG && ctx) duckG.gain.setTargetAtTime(l, ctx.currentTime, tc); applyVol(); };
 
   return {
-    init, tryResume,
-    get muted() { return muted; }, get running() { return !!ctx && ctx.state === 'running'; },
+    init, tryResume, unlock,
+    get muted() { return muted; }, get running() { return isPlaying(); },
+    get el() { return currentEl(); }, get ctx() { return ctx; },
     onState(fn) { onState = fn; },
-    music(name) { want = { name, vol: name === 'login' ? 0.6 : 0.34 }; init(); dec(name); startTrack(); },
-    toggle() { muted = !muted; localStorage.setItem('yxx_mute', muted ? '1' : '0'); tryResume(); if (master) master.gain.setTargetAtTime(muted ? 0 : 0.95, ctx.currentTime, 0.06); return muted; },
+    music(name) {
+      const prev = want && want.name;
+      want = { name, vol: name === 'login' ? 0.6 : 0.34 };
+      init(); dec(name);
+      const next = bgmEl[name], old = prev && prev !== name ? bgmEl[prev] : null;
+      applyVol();
+      if (!muted) kickEl(next, 0);
+      if (old && next && old !== next) {
+        const from = old.volume, to = volFor(name), t0 = performance.now();
+        (function fade() {
+          const k = Math.min(1, (performance.now() - t0) / 700);
+          try { next.volume = to * k; if (old) old.volume = from * (1 - k); } catch (_) {}
+          if (k < 1) requestAnimationFrame(fade);
+          else if (old) { try { old.pause(); old.currentTime = 0; } catch (_) {} }
+        })();
+      } else applyVol();
+      // Buffer-source BGM only as fallback if the element is not playing after unlock
+      if (unlocked && !elementPlaying()) startTrack();
+    },
+    toggle() {
+      muted = !muted; localStorage.setItem('yxx_mute', muted ? '1' : '0');
+      if (master && ctx) master.gain.setTargetAtTime(muted ? 0 : 0.95, ctx.currentTime, 0.06);
+      applyVol();
+      if (!muted) unlock();
+      else { try { currentEl().pause(); } catch (_) {} }
+      return muted;
+    },
     phase(p) { if (ctx) duck({ bet: 1, lock: 0.35, roll: 0.22, show: 0.32 }[p] || 1, p === 'bet' ? 1 : 0.12); },
     tap() { play('tap', { v: 0.7 }); }, hover() { play('hover', { v: 0.35 }); },
     chip() { play('chip', { v: 0.7, rate: rnd(0.95, 1.08) }); play(pick(['chipLay1', 'chipLay2', 'chipLay3']), { v: 0.6, rate: rnd(1, 1.15) }); },
