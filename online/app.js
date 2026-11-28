@@ -74,23 +74,166 @@ $('#lobbyMusic').addEventListener('click', musicBtn);
 
 // ================= 登录页金尘 =================
 (function dust() {
-  const c = $('#dust'), g = c.getContext('2d'); let W, H, P = [];
+  const c = $('#dust'), g = c.getContext('2d');
+  const login = $('#login');
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const size = () => { const d = Math.min(devicePixelRatio || 1, 2); W = c.clientWidth; H = c.clientHeight; c.width = W * d; c.height = H * d; g.setTransform(d, 0, 0, d, 0, 0); };
+  let W, H, dpr = 1, last = 0;
+  const size = () => {
+    dpr = Math.min(devicePixelRatio || 1, 2);
+    W = c.clientWidth; H = c.clientHeight;
+    c.width = W * dpr; c.height = H * dpr;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  };
   size(); addEventListener('resize', size);
-  for (let i = 0; i < (reduce ? 22 : 52); i++) P.push({ x: Math.random(), y: Math.random(), r: 0.5 + Math.random() * 1.8, s: 0.00012 + Math.random() * 0.00045, ph: Math.random() * 6 });
-  const draw = (t) => {
-    if ($('#login').hidden) return;
-    g.clearRect(0, 0, W, H);
-    for (const p of P) {
-      if (!reduce) { p.y -= p.s; if (p.y < -0.02) { p.y = 1.02; p.x = Math.random(); } }
-      const a = 0.22 + 0.38 * Math.sin((reduce ? p.ph : t / 900 + p.ph));
-      const ox = reduce ? 0 : Math.sin(t / 2000 + p.ph) * 8;
-      g.fillStyle = `rgba(240,200,120,${a})`; g.beginPath(); g.arc(p.x * W + ox, p.y * H, p.r, 0, 7); g.fill();
+
+  function bodhiPath(ctx, tw, th) {
+    ctx.beginPath();
+    ctx.moveTo(0, th * 0.68);
+    ctx.bezierCurveTo(-tw * 1.15, th * 0.78, -tw * 1.2, th * 0.12, -tw * 0.62, -th * 0.1);
+    ctx.bezierCurveTo(-tw * 0.32, -th * 0.46, -tw * 0.13, -th * 0.76, 0, -th);
+    ctx.bezierCurveTo(tw * 0.13, -th * 0.76, tw * 0.32, -th * 0.46, tw * 0.62, -th * 0.1);
+    ctx.bezierCurveTo(tw * 1.2, th * 0.12, tw * 1.15, th * 0.78, 0, th * 0.68);
+    ctx.closePath();
+  }
+  function makeLeaf(w, h, blur, back) {
+    const pad = Math.ceil((blur || 0) * 2) + 8;
+    const sc = document.createElement('canvas');
+    sc.width = Math.ceil(w + pad * 2); sc.height = Math.ceil(h + pad * 2);
+    const s = sc.getContext('2d');
+    const draw = (ctx) => {
+      ctx.save();
+      ctx.translate(pad + w / 2, pad + h / 2);
+      bodhiPath(ctx, w / 2, h / 2);
+      const gr = ctx.createLinearGradient(-w / 2, -h / 2, w / 2, h / 2);
+      if (back) {
+        gr.addColorStop(0, '#5a340c'); gr.addColorStop(0.45, '#c48a2c'); gr.addColorStop(1, '#6a4010');
+      } else {
+        gr.addColorStop(0, '#7a4a12'); gr.addColorStop(0.28, '#e8b44a'); gr.addColorStop(0.5, '#fff4c4');
+        gr.addColorStop(0.72, '#d4a03a'); gr.addColorStop(1, '#8a5010');
+      }
+      ctx.fillStyle = gr; ctx.fill();
+      ctx.strokeStyle = back ? 'rgba(90,50,12,.45)' : 'rgba(255,220,140,.35)';
+      ctx.lineWidth = Math.max(0.7, w * 0.03); ctx.stroke();
+      ctx.strokeStyle = back ? 'rgba(255,210,130,.28)' : 'rgba(255,236,180,.7)';
+      ctx.lineWidth = Math.max(0.9, w * 0.04);
+      ctx.beginPath(); ctx.moveTo(0, h * 0.32); ctx.quadraticCurveTo(0, 0, 0, -h * 0.42); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,220,150,.32)'; ctx.lineWidth = Math.max(0.5, w * 0.018);
+      for (const side of [-1, 1]) {
+        ctx.beginPath(); ctx.moveTo(0, h * 0.12); ctx.quadraticCurveTo(side * w * 0.12, h * 0.02, side * w * 0.22, -h * 0.02); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, -h * 0.06); ctx.quadraticCurveTo(side * w * 0.1, -h * 0.14, side * w * 0.16, -h * 0.2); ctx.stroke();
+      }
+      if (!back) {
+        bodhiPath(ctx, w / 2, h / 2); ctx.save(); ctx.clip();
+        const hi = ctx.createLinearGradient(-w * 0.4, -h * 0.5, w * 0.5, h * 0.3);
+        hi.addColorStop(0, 'rgba(255,255,230,0)'); hi.addColorStop(0.45, 'rgba(255,250,210,.55)'); hi.addColorStop(0.55, 'rgba(255,255,240,0)');
+        ctx.fillStyle = hi; ctx.fillRect(-w, -h, w * 2, h * 2);
+        ctx.restore();
+      }
+      ctx.restore();
+    };
+    if (blur) {
+      const tmp = document.createElement('canvas'); tmp.width = sc.width; tmp.height = sc.height;
+      const t = tmp.getContext('2d'); draw(t);
+      s.filter = `blur(${blur}px)`; s.drawImage(tmp, 0, 0); s.filter = 'none';
+    } else draw(s);
+    return sc;
+  }
+  // depth layers: far (small, soft), mid (sharp), near (large, slight blur)
+  const sprites = {
+    far:  { f: makeLeaf(22, 34, 0.9, false), b: makeLeaf(22, 34, 0.9, true) },
+    mid:  { f: makeLeaf(36, 56, 0, false),   b: makeLeaf(36, 56, 0, true) },
+    near: { f: makeLeaf(56, 88, 0.8, false), b: makeLeaf(56, 88, 0.8, true) },
+  };
+
+  const dustN = reduce ? 20 : 130;
+  const leafN = reduce ? 4 : 22;
+  const D = [], L = [];
+  for (let i = 0; i < dustN; i++) {
+    const glow = !reduce && Math.random() < 0.22;
+    D.push({
+      x: Math.random(), y: Math.random(),
+      r: glow ? 1.6 + Math.random() * 2.4 : 0.7 + Math.random() * 1.8,
+      s: 0.00005 + Math.random() * 0.00014, // per ms, fall a screen in ~5–14s
+      ph: Math.random() * 6, sway: 6 + Math.random() * 18,
+      glow, a: 0.35 + Math.random() * 0.5,
+    });
+  }
+  const kinds = ['far','far','far','far','far','far','mid','mid','mid','mid','mid','mid','mid','mid','near','near','near','near','mid','near','far','near'];
+  for (let i = 0; i < leafN; i++) {
+    const kind = kinds[i % kinds.length];
+    const size = kind === 'near' ? 0.85 + Math.random() * 0.45 : kind === 'mid' ? 0.7 + Math.random() * 0.5 : 0.55 + Math.random() * 0.45;
+    L.push({
+      kind, size,
+      x: Math.random(), y: Math.random() * 1.2 - 0.1,
+      s: (kind === 'near' ? 0.00007 : kind === 'mid' ? 0.00005 : 0.000035) + Math.random() * 0.00005,
+      rot: Math.random() * 6, spin: (Math.random() * 0.002 - 0.001),
+      flip: Math.random() * 6, flipS: 0.0007 + Math.random() * 0.0018,
+      ph: Math.random() * 6, sway: (kind === 'near' ? 22 : 14) + Math.random() * 24,
+      swayT: 1800 + Math.random() * 1800,
+    });
+  }
+
+  const drawDust = (p, t, moving) => {
+    const ox = moving ? Math.sin(t / 900 + p.ph) * p.sway : 0;
+    const a = p.a * (0.72 + 0.28 * Math.sin((moving ? t / 700 : 0) + p.ph));
+    const x = p.x * W + ox, y = p.y * H;
+    if (p.glow) {
+      const rad = g.createRadialGradient(x, y, 0, x, y, p.r * 4);
+      rad.addColorStop(0, `rgba(255,236,180,${a})`);
+      rad.addColorStop(0.35, `rgba(240,196,110,${a * 0.55})`);
+      rad.addColorStop(1, 'rgba(240,180,80,0)');
+      g.fillStyle = rad; g.beginPath(); g.arc(x, y, p.r * 4, 0, 7); g.fill();
+    }
+    g.fillStyle = `rgba(255,220,140,${Math.min(1, a + 0.15)})`;
+    g.beginPath(); g.arc(x, y, p.r, 0, 7); g.fill();
+  };
+
+  const drawLeaf = (lf, t, moving) => {
+    const ox = moving ? Math.sin(t / lf.swayT + lf.ph) * lf.sway : 0;
+    const flip = moving ? Math.cos(t * lf.flipS + lf.flip) : Math.cos(lf.flip);
+    const back = flip < 0;
+    const sx = Math.max(0.12, Math.abs(flip));
+    const spr = sprites[lf.kind][back ? 'b' : 'f'];
+    const sh = 0.45 + 0.55 * Math.abs(Math.sin((moving ? t / 500 : 0) + lf.ph)); // shimmer
+    g.save();
+    g.translate(lf.x * W + ox, lf.y * H);
+    g.rotate(lf.rot);
+    g.scale(sx * lf.size, lf.size);
+    g.globalAlpha = (lf.kind === 'far' ? 0.72 : lf.kind === 'near' ? 0.96 : 0.88) * (0.75 + 0.25 * sh);
+    g.drawImage(spr, -spr.width / 2, -spr.height / 2);
+    g.restore();
+  };
+
+  const step = (dt) => {
+    for (const p of D) {
+      p.y += p.s * dt;
+      if (p.y > 1.06) { p.y = -0.06; p.x = Math.random(); }
+    }
+    for (const lf of L) {
+      lf.y += lf.s * dt;
+      lf.rot += lf.spin * dt;
+      if (lf.y > 1.15) { lf.y = -0.12; lf.x = Math.random(); }
     }
   };
+
+  const draw = (t) => {
+    g.clearRect(0, 0, W, H);
+    // far dust, far leaves, mid dust, mid+near leaves — depth
+    for (const p of D) if (!p.glow) drawDust(p, t, !reduce);
+    for (const lf of L) if (lf.kind === 'far') drawLeaf(lf, t, !reduce);
+    for (const p of D) if (p.glow) drawDust(p, t, !reduce);
+    for (const lf of L) if (lf.kind !== 'far') drawLeaf(lf, t, !reduce);
+  };
+
   if (reduce) { draw(0); return; }
-  (function f(t) { draw(t); requestAnimationFrame(f); })(0);
+  const loop = (t) => {
+    if (login.hidden) { last = 0; setTimeout(() => requestAnimationFrame(loop), 400); return; }
+    if (!last) last = t;
+    const dt = Math.min(33, t - last); last = t;
+    step(dt); draw(t);
+    requestAnimationFrame(loop);
+  };
+  requestAnimationFrame(loop);
 })();
 
 // ================= 登录 / 注册 =================

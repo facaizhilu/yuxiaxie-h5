@@ -10,14 +10,14 @@ svg{display:block}
 /* ================= 登录 ================= */
 .login{position:absolute;inset:0;overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;align-items:flex-start;justify-content:center;background:#10060c}
 .login-bg{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:0}
-.login-bg img{width:100%;height:100%;object-fit:cover;object-position:center top;display:block;
-  transform:scale(1.06);animation:kenburns 32s ease-in-out infinite alternate;will-change:transform}
-@keyframes kenburns{to{transform:scale(1.14) translate3d(0,-1.6%,0)}}
+.login-bg img{width:100%;height:100%;object-fit:cover;object-position:center center;display:block;
+  transform:scale(1);animation:kenburns 36s ease-in-out infinite alternate}
+@keyframes kenburns{to{transform:scale(1.04)}}
 .login-wash{position:fixed;inset:0;pointer-events:none;z-index:1;background:
   linear-gradient(180deg,rgba(0,0,0,.18) 0%,transparent 22%,rgba(0,0,0,.12) 40%,rgba(0,0,0,.32) 62%,rgba(0,0,0,.40) 82%,rgba(0,0,0,.28) 100%)}
 #dust{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}
 @media (prefers-reduced-motion:reduce){
-  .login-bg img{animation:none;transform:scale(1.06)}
+  .login-bg img{animation:none;transform:scale(1)}
 }
 .login-inner{position:relative;z-index:3;width:min(86vw,338px);display:flex;flex-direction:column;align-items:center;padding:26vh 0 8vh;margin:0}
 .t-title{margin:0;font-family:"Noto Serif CJK SC","Noto Serif SC","Songti SC","STSong","SimSun",serif;font-weight:900;font-size:clamp(60px,18vw,86px);letter-spacing:.06em;line-height:1;
