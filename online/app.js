@@ -268,26 +268,6 @@ $('#authForm').addEventListener('submit', async (e) => {
 $('#enterBtn').addEventListener('click', () => { SND.tap(); enter(); });
 $('#switchUser').addEventListener('click', () => logout());
 
-(function loginKb() {
-  const root = document.getElementById('login');
-  const keep = () => {
-    if (!root || root.hidden) return;
-    const el = document.activeElement;
-    if (!el || el.tagName !== 'INPUT' || !root.contains(el)) return;
-    const vv = window.visualViewport;
-    if (!vv) { el.scrollIntoView({ block: 'nearest', inline: 'nearest' }); return; }
-    const r = el.getBoundingClientRect();
-    const bottom = vv.offsetTop + vv.height;
-    if (r.bottom > bottom - 16) root.scrollTop += r.bottom - bottom + 24;
-    else if (r.top < vv.offsetTop + 12) root.scrollTop -= vv.offsetTop + 12 - r.top;
-  };
-  if (window.visualViewport) {
-    visualViewport.addEventListener('resize', keep);
-    visualViewport.addEventListener('scroll', keep);
-  }
-  window.addEventListener('focusin', (e) => { if (e.target && e.target.closest && e.target.closest('#login input')) setTimeout(keep, 50); });
-})();
-
 // ================= 大厅构建 =================
 const board = $('#board');
 board.innerHTML = SYMS.map((s, i) => `
