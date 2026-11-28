@@ -10,16 +10,16 @@ const SYMS = [
   { id: 'horse', short: '骏马', name: '骏马奔腾', cls: 'gold' },
 ];
 const IMG = (i) => `/o/img/${SYMS[i].id}.webp`;
-const CHIPS = [{ v: 10, g: 0 }, { v: 50, g: 0 }, { v: 100, g: 0 }, { v: 500, g: 1 }, { v: 1000, g: 1 }];
+const CHIPS = [{ v: 10000, g: 0 }, { v: 50000, g: 0 }, { v: 100000, g: 0 }, { v: 500000, g: 1 }, { v: 1000000, g: 1 }];
 const fmt = (n) => Math.round(n).toLocaleString('en-US');
-const kfmt = (n) => (n >= 1e6 ? (n / 1e6).toFixed(n >= 1e7 ? 0 : 1) + 'M' : n >= 1e4 ? (n / 1e3).toFixed(n >= 1e5 ? 0 : 1) + 'K' : fmt(n));
+const kfmt = (n) => { if (n >= 1e6) { const x = n / 1e6; return (x % 1 ? x.toFixed(1) : x) + 'M'; } if (n >= 1e4) { const x = n / 1e3; return (x % 1 ? x.toFixed(1) : x) + 'K'; } return fmt(n); };
 const sum = (o) => Object.values(o).reduce((a, b) => a + b, 0);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const toObj = (arr) => { const o = {}; (arr || []).forEach((v, i) => { if (v) o[i] = v; }); return o; };
 const hhmm = (t) => { const d = new Date(t); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`; };
 const retrigger = (el, c) => { el.classList.remove(c); void el.offsetWidth; el.classList.add(c); };
 
-const S = { round: 0, phase: 'bet', offset: 0, balance: 0, chip: 100, me: '', pending: {}, mine: {},
+const S = { round: 0, phase: 'bet', offset: 0, balance: 0, chip: 10000, me: '', pending: {}, mine: {}, inflight: 0,
   lastBets: JSON.parse(localStorage.getItem('yxx_last') || '{}'), history: [], released: 0 };
 let token = localStorage.getItem('yxx_token') || '';
 let ws, sending = false, entered = false, pulling = false;
@@ -30,12 +30,6 @@ const imgsPromise = Promise.all(SYMS.map((_, i) => new Promise((res) => { const 
 // ================= 防 iOS 缩放 / 版本检查 =================
 ['gesturestart', 'gesturechange', 'gestureend'].forEach((ev) => document.addEventListener(ev, (e) => e.preventDefault(), { passive: false }));
 document.addEventListener('dblclick', (e) => e.preventDefault(), { passive: false });
-let lastTouchEnd = 0;
-document.addEventListener('touchend', (e) => {
-  const now = Date.now();
-  if (now - lastTouchEnd < 350 && !(e.target.closest && e.target.closest('input,textarea'))) e.preventDefault();
-  lastTouchEnd = now;
-}, { passive: false });
 document.addEventListener('touchmove', (e) => { if (e.touches.length > 1 || (e.scale && e.scale !== 1)) e.preventDefault(); }, { passive: false });
 async function checkVersion() {
   try {
@@ -51,20 +45,15 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) chec
 
 // ================= 音乐（登录即播放） =================
 function syncMusicIcons() {
-  const off = SND.muted || !SND.running;
-  ['#loginMusic', '#lobbyMusic'].forEach((s) => $(s).classList.toggle('off', off));
-  $('#loginMusic').classList.toggle('pulse', !SND.muted && !SND.running);
-  $('#musicHint').hidden = SND.muted || SND.running || entered;
+  ['#loginMusic', '#lobbyMusic'].forEach((s) => { const el = $(s); if (el) el.classList.toggle('off', SND.muted); });
 }
 SND.onState(syncMusicIcons);
 SND.music('login');
 SND.tryResume().then(syncMusicIcons);
-setTimeout(syncMusicIcons, 400);
-const unlock = () => { SND.tryResume().then(syncMusicIcons); };
+const unlock = () => { if (SND.muted) return; SND.tryResume().then(syncMusicIcons); };
 ['pointerdown', 'keydown', 'touchstart'].forEach((ev) => document.addEventListener(ev, unlock, { capture: true, passive: true }));
 function musicBtn(e) {
   e.stopPropagation();
-  if (!SND.muted && !SND.running) { SND.tryResume().then(syncMusicIcons); return; }
   SND.toggle(); setTimeout(syncMusicIcons, 50);
 }
 $('#loginMusic').addEventListener('click', musicBtn);
@@ -130,24 +119,24 @@ board.innerHTML = SYMS.map((s, i) => `
     <div class="badge" id="badge${i}"></div>
   </button>`).join('');
 const peds = [...board.querySelectorAll('.ped')];
-$('#chips').innerHTML = CHIPS.map((c) => `<button class="chip${c.g ? ' g' : ''}${c.v === S.chip ? ' sel' : ''}" data-v="${c.v}">${c.v >= 1000 ? '1K' : c.v}</button>`).join('');
+const chipLbl = (v) => (v >= 1e6 ? (v / 1e6) + 'M' : (v / 1e3) + 'K');
+$('#chips').innerHTML = CHIPS.map((c) => `<button class="chip${c.g ? ' g' : ''}${c.v === S.chip ? ' sel' : ''}" data-v="${c.v}">${chipLbl(c.v)}</button>`).join('');
 
 function renderBalance(bump) { $('#balance').textContent = fmt(S.balance); if (bump) retrigger($('.bal'), 'bump'); }
 function renderPed(i) {
-  const m = S.mine[i] || 0, p = S.pending[i] || 0, el = $('#mine' + i);
-  el.classList.toggle('on', !!(m || p));
-  el.innerHTML = (m ? kfmt(m) : '') + (p ? `<em>+${kfmt(p)}</em>` : '');
-  peds[i].classList.toggle('has', !!(m || p));
-  let left = m + p, k = 0, html = '';
+  const m = S.mine[i] || 0, el = $('#mine' + i);
+  el.classList.toggle('on', !!m);
+  el.innerHTML = m ? kfmt(m) : '';
+  peds[i].classList.toggle('has', !!m);
+  let left = m, k = 0, html = '';
   for (let c = CHIPS.length - 1; c >= 0 && k < 5; c--) while (left >= CHIPS[c].v && k < 5) {
     const col = CHIPS[c].g ? '#f3c66a' : '#4fe9ff';
     html += `<i style="bottom:${k * 4}px;--cc:${col}"></i>`; left -= CHIPS[c].v; k++;
   }
   $('#stack' + i).innerHTML = html;
 }
-function renderAll() { SYMS.forEach((_, i) => renderPed(i)); renderBalance(); updateOk(); }
+function renderAll() { SYMS.forEach((_, i) => renderPed(i)); renderBalance(); }
 const histImgs = (r) => r.map((s) => `<img src="${IMG(s)}" alt="">`).join('');
-function updateOk() { $('#btnOk').classList.toggle('ready', sum(S.pending) > 0 && S.phase === 'bet'); }
 function setRound(n) { S.round = n; $('#round').textContent = `第 ${n} 局`; }
 let toastT;
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 1600); }
@@ -166,32 +155,30 @@ $('#chips').addEventListener('click', (e) => {
   S.chip = +b.dataset.v; document.querySelectorAll('.chip').forEach((c) => c.classList.toggle('sel', c === b)); SND.tap();
 });
 const canBet = () => { if (S.phase === 'show') resetRound(); if (S.phase !== 'bet') { toast('骰子已放下，请等待开奖'); return false; } return true; };
-board.addEventListener('click', (e) => {
-  const t = e.target.closest('.ped'); if (!t || !canBet()) return;
-  const i = +t.dataset.i;
-  if (sum(S.pending) + S.chip > S.balance) return toast('余额不足');
-  S.pending[i] = (S.pending[i] || 0) + S.chip;
-  flyChip(document.querySelector('.chip.sel'), t, S.chip >= 500);
-  SND.chip(); renderPed(i); updateOk(); hideHint();
+function placeChip(i) {
+  if (!canBet()) return;
+  if (S.chip > S.balance) return toast('余额不足');
+  if (!ws || ws.readyState !== 1) return toast('网络连接中，请稍候');
+  S.balance -= S.chip;
+  S.mine[i] = (S.mine[i] || 0) + S.chip;
+  S.inflight = (S.inflight || 0) + 1;
+  flyChip(document.querySelector('.chip.sel'), peds[i], S.chip >= 500000);
+  SND.chip(); renderPed(i); renderBalance(true); hideHint(); armHint();
   if (navigator.vibrate) navigator.vibrate(8);
+  ws.send(JSON.stringify({ t: 'bet', bets: { [i]: S.chip } }));
+}
+board.addEventListener('pointerdown', (e) => {
+  const t = e.target.closest('.ped'); if (!t) return;
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  e.preventDefault();
+  placeChip(+t.dataset.i);
 });
 board.addEventListener('pointerenter', (e) => { if (e.target.closest && e.target.closest('.ped') && matchMedia('(hover:hover)').matches) SND.hover(); }, true);
-$('#btnClear').addEventListener('click', () => { if (!sum(S.pending)) return toast('没有待确认的下注'); S.pending = {}; renderAll(); SND.clear(); });
-$('#btnRepeat').addEventListener('click', () => {
+$('#btnClear').addEventListener('click', () => {
   if (!canBet()) return;
-  if (!sum(S.lastBets)) return toast('上一局没有下注');
-  if (sum(S.lastBets) + sum(S.pending) > S.balance) return toast('余额不足');
-  for (const k in S.lastBets) S.pending[k] = (S.pending[k] || 0) + S.lastBets[k];
-  renderAll(); SND.repeat();
-});
-$('#btnOk').addEventListener('click', () => {
-  if (!canBet()) return;
-  const tot = sum(S.pending);
-  if (!tot) return toast('请先选择筹码并点击图案下注');
-  if (tot > S.balance) return toast('余额不足');
+  if (!sum(S.mine)) return toast('没有可取消的下注');
   if (!ws || ws.readyState !== 1) return toast('网络连接中，请稍候');
-  if (sending) return; sending = true;
-  ws.send(JSON.stringify({ t: 'bet', bets: S.pending }));
+  ws.send(JSON.stringify({ t: 'cancel' }));
 });
 
 // 底部导航 / 弹层
@@ -200,10 +187,11 @@ $('#sheetX').addEventListener('click', () => { $('#sheet').hidden = true; });
 $('#sheet').addEventListener('click', (e) => { if (e.target.id === 'sheet') $('#sheet').hidden = true; });
 $('#navHist').addEventListener('click', () => sheet(`<h3>开奖历史</h3>${S.history.slice(0, 30).map((r, k) => `<div class="hrow"><span style="width:56px">#${S.rounds - k}</span>${histImgs(r)}<span>${r.map((s) => SYMS[s].short).join(' · ')}</span></div>`).join('') || '<p>暂无记录</p>'}`));
 $('#navFair').addEventListener('click', () => sheet(`<h3>规则说明</h3><ul>
-  <li>选择筹码，点击图案下注，再点「确认」。</li>
-  <li>拉下右侧拉绳放下骰子：轻拉放下一颗，用力拉到底放下全部。三颗骰子落定后开奖。</li>
+  <li>选择筹码，点击图案即可下注，点一次下一注，可连续快速点击。</li>
+  <li>拉下右侧拉绳放下骰子：轻拉放下一颗，用力拉到底放下全部。第一次拉绳后本局下注锁定。</li>
+  <li>「取消下注」可在拉绳前取消本局全部下注并退还金币。</li>
   <li>押中的图案每出现 1 次，赔付 1 倍下注额并退还本金（出现 2 次赔 2 倍，3 次赔 3 倍）。</li>
-  <li>确认下注时服务器用加密随机数（crypto.randomInt）定下结果，每位玩家独立一局。</li>
+  <li>第一次点击下注时服务器用加密随机数（crypto.randomInt）定下结果，每位玩家独立一局。</li>
   <li>本游戏仅使用虚拟演示币，不可充值、提现或兑换。</li></ul>`));
 $('#navMenu').addEventListener('click', () => {
   sheet(`<h3>菜单</h3><p>当前账号：<b>${esc(S.me)}</b></p><button class="menu-btn" id="mMusic">${SND.muted ? '开启音乐' : '关闭音乐'}</button><button class="menu-btn" id="mOut">退出登录</button>`);
@@ -345,7 +333,7 @@ let drag = null;
 const LIGHT = 16;
 function canPull(quiet) {
   if (pulling || S.phase === 'show') return false;
-  if (!sum(S.mine)) { if (!quiet) toast(sum(S.pending) ? '请先点击「确认」下注' : '请先下注并确认'); return false; }
+  if (!sum(S.mine)) { if (!quiet) toast('请先下注'); return false; }
   return S.released < 3;
 }
 ropeEl.addEventListener('pointerdown', (e) => {
@@ -384,7 +372,7 @@ function armHint() { hideHint(); if (!canPull(true)) return; hintT = setTimeout(
 // ================= 回合流程 =================
 function onDrop(m) {
   hideHint(); SND.release(); liftBar(Math.round(G.ds * 0.85));
-  S.phase = 'drop'; board.classList.add('locked'); updateOk();
+  S.phase = 'drop'; board.classList.add('locked');
   m.drops.forEach((d, k) => { S.released = Math.max(S.released, d.i + 1); rollDie(d.i, d.s, 0.12 + k * 0.32); });
   if (m.done) pendingSettle = m;
 }
@@ -420,19 +408,29 @@ function onMsg(m) {
   switch (m.t) {
     case 'auth': toast(m.error); logout(); break;
     case 'state':
-      S.me = m.me.name; S.balance = m.me.balance; $('#meName').textContent = S.me;
+      S.me = m.me.name; $('#meName').textContent = S.me;
       S.history = m.history || []; S.rounds = m.rounds || 0; setRound(m.round);
       if (S.phase !== 'show' && !D.some((d) => d.state === 'roll')) {
-        S.mine = toObj(m.myBets); S.released = m.released || 0;
+        if (!S.inflight) { S.balance = m.me.balance; S.mine = toObj(m.myBets); }
+        S.released = m.released || 0;
         S.phase = S.released ? 'drop' : 'bet'; board.classList.toggle('locked', !!S.released);
         D.forEach((d, i) => { if (i < S.released) landInstant(i, m.landed[i]); else { d.state = 'held'; place(d); } });
         G.lift = 0; drawRope();
       }
       renderAll(); armHint(); break;
     case 'betok':
-      sending = false; S.balance = m.balance; S.mine = toObj(m.myBets); S.pending = {}; setRound(m.round);
-      renderAll(); renderBalance(true); SND.confirm(); toast(`下注成功 ${fmt(m.total)}`); armHint(); break;
-    case 'betfail': sending = false; S.balance = m.balance; renderBalance(); toast(m.error); break;
+      S.inflight = Math.max(0, (S.inflight || 0) - 1);
+      setRound(m.round);
+      if (!S.inflight) { S.balance = m.balance; S.mine = toObj(m.myBets); renderAll(); }
+      armHint(); break;
+    case 'betfail':
+      S.inflight = Math.max(0, (S.inflight || 0) - 1);
+      S.balance = m.balance; if (m.myBets) S.mine = toObj(m.myBets);
+      renderAll(); toast(m.error); break;
+    case 'cancelok':
+      S.inflight = 0; S.balance = m.balance; S.mine = {}; S.pending = {};
+      renderAll(); renderBalance(true); SND.clear(); toast('已取消下注，退还 ' + fmt(m.refund)); armHint(); break;
+    case 'cancelfail': toast(m.error); break;
     case 'drop': onDrop(m); break;
     case 'pullfail': pulling = false; toast(m.error); armHint(); break;
   }

@@ -13,8 +13,8 @@ const PORT = +process.env.PORT || 8790;
 const DATA_DIR = path.join(__dirname, 'data');
 const DB_FILE = path.join(DATA_DIR, 'db.json');
 const START_BAL = 10000;
-const CHIPS = [10, 50, 100, 500, 1000];
-const MAX_BET_PER_ROUND = 1000000;
+const CHIPS = [10000, 50000, 100000, 500000, 1000000];
+const MAX_BET_PER_ROUND = 100000000;
 const SYM_NAMES = ['大象', '兔子', '红鲤鱼', '老虎', '孔雀', '马'];
 
 // ---------------- 存储（JSON 文件） ----------------
@@ -172,6 +172,7 @@ wss.on('connection', (ws, req) => {
     let m; try { m = JSON.parse(raw); } catch (_) { return; }
     if (m.t === 'bet') return placeBet(c, m);
     if (m.t === 'pull') return pull(c, m);
+    if (m.t === 'cancel') return cancelBets(c);
     if (m.t === 'ping') return send(ws, { t: 'pong', now: Date.now() });
   });
   ws.on('close', () => { clients.delete(c); });
@@ -180,7 +181,7 @@ setInterval(() => { for (const c of clients) { if (!c.ws.isAlive) { c.ws.termina
 
 function placeBet(c, m) {
   const u = c.user;
-  const fail = (error) => send(c.ws, { t: 'betfail', error, balance: u.balance });
+  const fail = (error) => send(c.ws, { t: 'betfail', error, balance: u.balance, myBets: u.cur ? u.cur.bets : ZERO() });
   if (u.cur && u.cur.released > 0) return fail('骰子已放下，请等待开奖');
   const bets = m.bets;
   if (!bets || typeof bets !== 'object') return fail('下注数据错误');
@@ -188,7 +189,7 @@ function placeBet(c, m) {
   for (const [k, v] of Object.entries(bets)) {
     const i = Number(k);
     if (!Number.isInteger(i) || i < 0 || i > 5) return fail('下注数据错误');
-    if (!Number.isInteger(v) || v <= 0 || v % 10 !== 0) return fail('下注金额错误');
+    if (!Number.isInteger(v) || !CHIPS.includes(v)) return fail('下注金额错误');
     add[i] += v;
   }
   const total = add.reduce((a, b) => a + b, 0);
@@ -205,7 +206,7 @@ function placeBet(c, m) {
 
 function pull(c, m) {
   const u = c.user, cur = u.cur;
-  if (!cur || !cur.bets.some(Boolean)) return send(c.ws, { t: 'pullfail', error: '请先下注并确认' });
+  if (!cur || !cur.bets.some(Boolean)) return send(c.ws, { t: 'pullfail', error: '请先下注' });
   const n = m.n === 3 ? 3 : 1;
   const from = cur.released, k = Math.min(n, 3 - from);
   if (k <= 0) return send(c.ws, { t: 'pullfail', error: '骰子已全部放下' });
@@ -222,6 +223,19 @@ function pull(c, m) {
   u.rounds = (u.rounds || 0) + 1;
   const id = cur.id; delete u.cur; save();
   sendUser(u, { t: 'drop', drops, done: true, round: id, result: r, counts: cnt, myWin: win, myBet: bet, balance: u.balance, bets: cur.bets });
+}
+
+
+function cancelBets(c) {
+  const u = c.user, cur = u.cur;
+  const fail = (error) => send(c.ws, { t: 'cancelfail', error, balance: u.balance });
+  if (!cur || !cur.bets.some(Boolean)) return fail('没有可取消的下注');
+  if (cur.released > 0) return fail('骰子已放下，无法取消');
+  const refund = cur.bets.reduce((a, b) => a + b, 0);
+  u.balance += refund;
+  delete u.cur;
+  save();
+  sendUser(u, { t: 'cancelok', balance: u.balance, refund, myBets: ZERO() });
 }
 
 server.listen(PORT, () => { console.log(`鱼虾蟹 server on :${PORT}`); });

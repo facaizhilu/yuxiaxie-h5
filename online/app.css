@@ -182,7 +182,7 @@ svg{display:block}
 @keyframes spin{to{transform:rotate(360deg)}}
 .fly-chip{position:fixed;z-index:40;width:24px;height:24px;border-radius:50%;pointer-events:none;border:2px dashed #fff;box-shadow:0 0 10px currentColor}
 
-.actions{display:grid;grid-template-columns:1fr 1fr 1.25fr;gap:8px}
+.actions{display:grid;grid-template-columns:1fr;gap:8px}
 .act{height:48px;display:flex;align-items:center;justify-content:center;gap:7px;font-size:17px;font-weight:800;letter-spacing:.12em;clip-path:polygon(10px 0,calc(100% - 10px) 0,100% 50%,calc(100% - 10px) 100%,10px 100%,0 50%);transition:filter .15s,transform .1s}
 .act svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 .act:active{transform:scale(.97)}
@@ -371,10 +371,10 @@ input{-webkit-user-select:text;user-select:text;font-size:16px!important}
 
 .bar{position:absolute;z-index:6;left:0;right:0;top:var(--barY,120px);height:5px;
   background:linear-gradient(180deg,#f7e7b0,#d7a84a 28%,#8a5a18 70%,#3a2408);box-shadow:0 1px 3px rgba(0,0,0,.65),0 0 10px rgba(243,198,106,.35),inset 0 1px 0 #fff6d0;will-change:transform}
-.bar .knot{position:absolute;right:16px;top:50%;width:10px;height:10px;margin:-5px -5px 0 0;border-radius:50%;background:radial-gradient(circle at 40% 35%,#fff3c8,#f3c66a 50%,#8a5a10);box-shadow:0 0 6px rgba(243,198,106,.8)}
+.bar .knot{position:absolute;right:34px;top:50%;width:10px;height:10px;margin:-5px -5px 0 0;border-radius:50%;background:radial-gradient(circle at 40% 35%,#fff3c8,#f3c66a 50%,#8a5a10);box-shadow:0 0 6px rgba(243,198,106,.8)}
 
 /* 拉绳：从横杠最右端竖直垂下，可拖动把手 */
-.rope{position:absolute;z-index:12;right:-6px;width:44px;cursor:grab;touch-action:none}
+.rope{position:absolute;z-index:12;right:12px;width:44px;cursor:grab;touch-action:none}
 .rope:active{cursor:grabbing}
 .rope-line{position:absolute;left:50%;top:0;bottom:12px;width:6px;margin-left:-3px;border-radius:3px;
   background:repeating-linear-gradient(170deg,rgba(90,58,16,.55) 0 2px,transparent 2px 5px),linear-gradient(90deg,#7a4f16,#f3e0a8 45%,#c9923a 70%,#6a4210);box-shadow:0 1px 3px rgba(0,0,0,.6)}
@@ -382,7 +382,7 @@ input{-webkit-user-select:text;user-select:text;font-size:16px!important}
   background:linear-gradient(90deg,#8a5a10,#fff3c8 40%,#f3c66a 60%,#7a4f16);box-shadow:0 4px 10px rgba(0,0,0,.6),0 0 12px rgba(243,198,106,.5),inset 0 0 0 1px #5a3a0c}
 .handle i{position:absolute;left:3px;right:3px;top:8px;bottom:8px;border-radius:6px;background:repeating-linear-gradient(180deg,rgba(90,58,16,.6) 0 2px,transparent 2px 5px)}
 .handle::before{content:"";position:absolute;inset:-18px -14px}
-.arrow{position:absolute;z-index:11;right:2px;width:26px;height:26px;fill:none;stroke:#4fe9ff;stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round;
+.arrow{position:absolute;z-index:11;right:20px;width:26px;height:26px;fill:none;stroke:#4fe9ff;stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round;
   filter:drop-shadow(0 0 6px rgba(79,233,255,.85));opacity:0;pointer-events:none;transform:translateX(-16px)}
 .arrow.on{animation:hintb 2s ease-in-out infinite}
 @keyframes hintb{0%{opacity:.2;transform:translate(-16px,0)}15%{opacity:1;transform:translate(-16px,10px)}30%{opacity:.3;transform:translate(-16px,0)}45%{opacity:1;transform:translate(-16px,10px)}62%,100%{opacity:0;transform:translate(-16px,0)}}
@@ -433,3 +433,4 @@ input{-webkit-user-select:text;user-select:text;font-size:16px!important}
 
 .bottom{flex:none;display:flex;flex-direction:column;gap:5px;padding:8px 10px calc(4px + env(safe-area-inset-bottom));background:linear-gradient(180deg,#040a14,#02050b)}
 .bottom .board{flex:none}
+.chip{width:54px;height:50px;font-size:11px;letter-spacing:0}
