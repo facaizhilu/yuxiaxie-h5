@@ -125,6 +125,26 @@ $('#authForm').addEventListener('submit', async (e) => {
 $('#enterBtn').addEventListener('click', () => { SND.tap(); enter(); });
 $('#switchUser').addEventListener('click', () => logout());
 
+(function loginKb() {
+  const root = document.getElementById('login');
+  const keep = () => {
+    if (!root || root.hidden) return;
+    const el = document.activeElement;
+    if (!el || el.tagName !== 'INPUT' || !root.contains(el)) return;
+    const vv = window.visualViewport;
+    if (!vv) { el.scrollIntoView({ block: 'nearest', inline: 'nearest' }); return; }
+    const r = el.getBoundingClientRect();
+    const bottom = vv.offsetTop + vv.height;
+    if (r.bottom > bottom - 16) root.scrollTop += r.bottom - bottom + 24;
+    else if (r.top < vv.offsetTop + 12) root.scrollTop -= vv.offsetTop + 12 - r.top;
+  };
+  if (window.visualViewport) {
+    visualViewport.addEventListener('resize', keep);
+    visualViewport.addEventListener('scroll', keep);
+  }
+  window.addEventListener('focusin', (e) => { if (e.target && e.target.closest && e.target.closest('#login input')) setTimeout(keep, 50); });
+})();
+
 // ================= 大厅构建 =================
 const board = $('#board');
 board.innerHTML = SYMS.map((s, i) => `
@@ -167,9 +187,21 @@ function flyChip(from, to) {
 }
 
 // ================= 下注操作 =================
-$('#chips').addEventListener('click', (e) => {
+function selectChip(b) {
+  if (!b) return;
+  S.chip = +b.dataset.v;
+  document.querySelectorAll('.chip').forEach((c) => c.classList.toggle('sel', c === b));
+  SND.tap();
+}
+const chipsEl = $('#chips');
+chipsEl.addEventListener('touchend', (e) => {
   const b = e.target.closest('.chip'); if (!b) return;
-  S.chip = +b.dataset.v; document.querySelectorAll('.chip').forEach((c) => c.classList.toggle('sel', c === b)); SND.tap();
+  e.preventDefault();
+  selectChip(b);
+}, { passive: false });
+chipsEl.addEventListener('click', (e) => {
+  const b = e.target.closest('.chip'); if (!b) return;
+  selectChip(b);
 });
 const canBet = () => { if (S.phase === 'show') resetRound(); if (S.phase !== 'bet') { toast('骰子已放下，请等待开奖'); return false; } return true; };
 function placeChip(i) {
@@ -184,7 +216,13 @@ function placeChip(i) {
   if (navigator.vibrate) navigator.vibrate(8);
   ws.send(JSON.stringify({ t: 'bet', bets: { [i]: S.chip } }));
 }
+board.addEventListener('touchend', (e) => {
+  const t = e.target.closest('.ped'); if (!t) return;
+  e.preventDefault();
+  placeChip(+t.dataset.i);
+}, { passive: false });
 board.addEventListener('pointerdown', (e) => {
+  if (e.pointerType === 'touch') return;
   const t = e.target.closest('.ped'); if (!t) return;
   if (e.pointerType === 'mouse' && e.button !== 0) return;
   e.preventDefault();

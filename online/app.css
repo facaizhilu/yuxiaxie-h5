@@ -8,14 +8,14 @@ svg{display:block}
 [hidden]{display:none!important}
 
 /* ================= 登录 ================= */
-.login{position:fixed;inset:0;overflow:hidden;display:flex;align-items:flex-start;justify-content:center;background:#10060c}
-.login-bg{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.login{position:absolute;inset:0;overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;align-items:flex-start;justify-content:center;background:#10060c}
+.login-bg{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:0}
 .login-bg img{width:100%;height:100%;object-fit:cover;object-position:center top;display:block;
   transform:scale(1.06);animation:kenburns 32s ease-in-out infinite alternate;will-change:transform}
 @keyframes kenburns{to{transform:scale(1.14) translate3d(0,-1.6%,0)}}
-.login-wash{position:absolute;inset:0;pointer-events:none;z-index:1;background:
+.login-wash{position:fixed;inset:0;pointer-events:none;z-index:1;background:
   linear-gradient(180deg,rgba(0,0,0,.18) 0%,transparent 22%,rgba(0,0,0,.12) 40%,rgba(0,0,0,.32) 62%,rgba(0,0,0,.40) 82%,rgba(0,0,0,.28) 100%)}
-#dust{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}
+#dust{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}
 @media (prefers-reduced-motion:reduce){
   .login-bg img{animation:none;transform:scale(1.06)}
 }
@@ -35,12 +35,15 @@ svg{display:block}
 .t-tabs button{padding:10px 0;font-size:17px;letter-spacing:.2em;color:#e9d4a2;position:relative}
 .t-tabs button.on{color:#fff3c8;font-weight:700}
 .t-tabs button.on::after{content:"";position:absolute;left:25%;right:25%;bottom:4px;height:1.5px;background:linear-gradient(90deg,transparent,#e2b664,transparent)}
-.t-field{display:flex;align-items:center;gap:10px;height:50px;margin-bottom:12px;padding:0 12px;border-radius:11px;
-  background:rgba(12,8,10,.34);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
-  border:1px solid rgba(232,200,120,.55);box-shadow:0 8px 20px rgba(0,0,0,.16);transition:border-color .2s,box-shadow .2s}
+.t-field{position:relative;z-index:0;display:flex;align-items:stretch;gap:10px;height:50px;margin-bottom:12px;padding:0 12px;border-radius:11px;
+  background:transparent;border:1px solid rgba(232,200,120,.55);box-shadow:0 8px 20px rgba(0,0,0,.16);transition:border-color .2s,box-shadow .2s}
+.t-field::before{content:"";position:absolute;inset:0;border-radius:inherit;background:rgba(12,8,10,.34);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);pointer-events:none;z-index:-1}
 .t-field:focus-within{border-color:#e2b664;box-shadow:0 0 0 3px rgba(226,182,100,.14)}
-.t-field svg{width:20px;height:20px;fill:none;stroke:#e2b664;stroke-width:1.8;flex:none}
-.t-field input{flex:1;min-width:0;height:100%;background:none;border:0;outline:none;color:#fff6e0;font-size:16px}
+.t-field svg{width:20px;height:20px;fill:none;stroke:#e2b664;stroke-width:1.8;flex:none;align-self:center}
+.t-field input{display:block;flex:1;min-width:0;width:100%;height:50px;line-height:normal;font-size:16px;letter-spacing:normal;
+  padding:0;margin:0;background:transparent;border:0;outline:none;color:#fff6e0;-webkit-appearance:none;appearance:none;
+  transform:none;backdrop-filter:none;-webkit-backdrop-filter:none}
 .t-field input::placeholder{color:#d4c09a}
 .eye svg{stroke:#c9b27a}
 .t-err{min-height:18px;color:#ff9e8a;font-size:13px;margin:-2px 0 6px;text-shadow:0 1px 4px rgba(0,0,0,.8)}
@@ -52,13 +55,13 @@ svg{display:block}
 .t-tip{margin-top:14px;font-size:11.5px;color:#f0e0c0;text-align:center;line-height:1.5;text-shadow:0 1px 4px rgba(0,0,0,.8),0 0 8px rgba(0,0,0,.45)}
 .welcome{text-align:center;padding-top:8px}.w-txt{color:#f3e6c8;margin-bottom:14px;text-shadow:0 1px 4px rgba(0,0,0,.75)}.w-txt b{color:#ffe7a8}
 .t-link{margin-top:12px;color:#e9d4a2;font-size:13px;text-decoration:underline;text-shadow:0 1px 3px rgba(0,0,0,.7)}
-.login-credit{position:absolute;z-index:4;left:12px;right:12px;bottom:calc(8px + env(safe-area-inset-bottom));
+.login-credit{position:fixed;z-index:4;left:12px;right:12px;bottom:calc(8px + env(safe-area-inset-bottom));
   text-align:center;font-size:9px;letter-spacing:.04em;color:rgba(236,214,170,.62);text-decoration:none;
   text-shadow:0 1px 3px rgba(0,0,0,.8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .login-credit:active{color:rgba(255,236,200,.9)}
 .music-btn{position:absolute;z-index:5;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;transition:opacity .2s}
 .music-btn svg{width:20px;height:20px;fill:none;stroke-width:1.8}
-.music-btn.gold{top:calc(16px + env(safe-area-inset-top));right:16px;border:1.5px solid rgba(226,182,100,.9);background:rgba(12,8,10,.52);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:0 4px 16px rgba(0,0,0,.4)}.music-btn.gold svg{stroke:#e2b664}
+.music-btn.gold{position:fixed;top:calc(16px + env(safe-area-inset-top));right:16px;border:1.5px solid rgba(226,182,100,.9);background:rgba(12,8,10,.52);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:0 4px 16px rgba(0,0,0,.4)}.music-btn.gold svg{stroke:#e2b664}
 .music-btn.off{opacity:.45}.music-btn.off::after{content:"";position:absolute;width:26px;height:2px;background:currentColor;transform:rotate(-45deg);color:#e2b664}
 .music-btn.cyan.off::after{color:var(--cy)}
 .music-btn.pulse{animation:mpulse 1.4s infinite}
@@ -268,8 +271,9 @@ svg{display:block}
 
 /* ===== v4：防缩放 + 倒计时时钟图标 ===== */
 html,body{touch-action:manipulation;-webkit-text-size-adjust:100%;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
-button,.ped,.chip,.act,.bnav button,.history{touch-action:manipulation}
-input{-webkit-user-select:text;user-select:text;font-size:16px!important}
+button,.ped,.chip,.act,.bnav button,.history{touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+.ped,.chip{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+input{-webkit-user-select:text;user-select:text;font-size:16px!important;line-height:normal;letter-spacing:normal;transform:none}
 .cd-clk{position:absolute;left:50%;top:21px;width:15px;height:15px;margin-left:-7.5px;fill:none;stroke:var(--cy);stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 3px var(--cy))}
 .cd-num{padding-top:15px}
 .cd.urgent .cd-clk{stroke:#ff8f9b;filter:drop-shadow(0 0 4px #ff5a6a);animation:pulse .5s infinite}
