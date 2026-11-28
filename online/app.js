@@ -244,9 +244,9 @@ const api = async (url, body) => {
   if (!r.ok) throw new Error(j.error || '网络错误');
   return j;
 };
-document.querySelectorAll('.t-tabs button').forEach((b) => b.addEventListener('click', () => {
+document.querySelectorAll('#authSwitch button').forEach((b) => b.addEventListener('click', () => {
   mode = b.dataset.m; SND.tap();
-  document.querySelectorAll('.t-tabs button').forEach((x) => x.classList.toggle('on', x === b));
+  document.querySelectorAll('#authSwitch button').forEach((x) => x.classList.toggle('on', x === b));
   $('#pass2Row').hidden = mode !== 'register';
   $('#authBtn span').textContent = mode === 'register' ? '注册并进入' : '登录并进入';
   $('#fPass').autocomplete = mode === 'register' ? 'new-password' : 'current-password';

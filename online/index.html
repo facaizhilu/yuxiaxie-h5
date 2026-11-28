@@ -10,7 +10,7 @@
 <script>window.__V="__V__";</script>
 <style>
   html,body{margin:0;height:100%;background:#10060c}
-  .login-bg{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:0;background:#10060c url("data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDABQODxIPDRQSEBIXFRQYHjIhHhwcHj0sLiQySUBMS0dARkVQWnNiUFVtVkVGZIhlbXd7gYKBTmCNl4x9lnN+gXz/2wBDARUXFx4aHjshITt8U0ZTfHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHz/wAARCABOACQDASIAAhEBAxEB/8QAGQABAAMBAQAAAAAAAAAAAAAAAAECBAUD/8QAHxAAAgICAwEBAQAAAAAAAAAAAAECEQMEEiExFEFh/8QAFwEBAQEBAAAAAAAAAAAAAAAAAAMCAf/EABcRAQEBAQAAAAAAAAAAAAAAAAABAhH/2gAMAwEAAhEDEQA/ANSLIqmWKdYSCoOCQRYAJJPsmclXRytjdlBdFdXdeR02StUkdSxZ4PKq9POW1GPrGNdjms8rXYMy2Iteg31nji5M0ckfSutJQfpzo5Gv0vHI79JazarLI7P0f0y7Ga30zMstr0huzMxxu66v9E11YPFoFE+PAAGnE8mOTIBwW5sFQAAB0AAAAAH/2Q==") center/cover no-repeat}
+  .login-bg{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:0;background:#10060c url("data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDABQODxIPDRQSEBIXFRQYHjIhHhwcHj0sLiQySUBMS0dARkVQWnNiUFVtVkVGZIhlbXd7gYKBTmCNl4x9lnN+gXz/2wBDARUXFx4aHjshITt8U0ZTfHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHz/wAARCABOACQDASIAAhEBAxEB/8QAGgABAAIDAQAAAAAAAAAAAAAAAAMFAQIEBv/EACAQAAICAgICAwAAAAAAAAAAAAABAgMEEQUSIUEjMVH/xAAZAQADAQEBAAAAAAAAAAAAAAAAAQIDBAX/xAAaEQACAwEBAAAAAAAAAAAAAAAAAQIDERIT/9oADAMBAAIRAxEAPwDxoAAAAAAAAANtG8IpmNFhh4jtg3oiUlFaylHStktM1J8itwsaZDopPUJrDUG2gMRLXByktI9PxdXSh9l6OGnFhW03otaJxUNI8++zpYjrhDCh5Kr529HA46PTZOMrvJwWca/OjSu5ZjIlWymaBPZjuE2gdPSMcJI5c2vLJI504+yuUtGe5DrRorGW0eUkvslXLJrTKPsYbJ8Isfoy0sya5zcv0FVtgryRHYABsQAAAAAAB//Z") center/cover no-repeat}
   .login-bg img{width:100%;height:100%;object-fit:cover;object-position:center center;display:block;opacity:0;transition:opacity .45s ease;transform:none}
   .login-bg img.ready{opacity:1}
   @media (prefers-reduced-motion:reduce){.login-bg img{transition:none}}
@@ -21,10 +21,10 @@
 </head>
 <body>
 
-<!-- ============ 登录页（Pha That Luang 黄昏，CC BY-SA 4.0） ============ -->
+<!-- ============ 登录页（Pha That Luang 夜景，CC BY-SA 3.0） ============ -->
 <section id="login" class="login">
   <div class="login-bg" aria-hidden="true">
-    <img id="loginBg" src="/o/img/login-bg.webp?v=__V__" alt="" width="1290" height="2796" fetchpriority="high" onload="this.classList.add('ready')">
+    <img id="loginBg" src="/o/img/login-bg.webp?v=__V__" alt="" width="1854" height="4012" fetchpriority="high" onload="this.classList.add('ready')">
   </div>
   <script>!function(i){if(i&&i.complete&&i.naturalWidth)i.classList.add('ready')}(document.getElementById('loginBg'))</script>
   <div class="login-wash" aria-hidden="true"></div>
@@ -47,10 +47,10 @@
     </div>
     </div>
     <form id="authForm" class="t-panel" autocomplete="on">
-      <div class="t-tabs"><button type="button" class="on" data-m="login">登录</button><span></span><button type="button" data-m="register">注册</button></div>
       <label class="t-field"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><input id="fUser" name="username" placeholder="用户名" autocomplete="username" maxlength="16" required></label>
       <label class="t-field"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><input id="fPass" name="password" type="password" placeholder="密码" autocomplete="current-password" maxlength="32" required><button type="button" class="eye" id="eye" aria-label="显示密码"><svg viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></label>
       <label class="t-field" id="pass2Row" hidden><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><input id="fPass2" type="password" placeholder="确认密码" autocomplete="new-password" maxlength="32"></label>
+      <div class="t-switch" id="authSwitch"><button type="button" class="on" data-m="login">登录</button><span>·</span><button type="button" data-m="register">注册</button></div>
       <div class="t-err" id="authErr"></div>
       <button class="t-btn" id="authBtn" type="submit"><span>登录并进入</span></button>
       <div class="t-tip" id="authTip">新注册账号赠送 10,000 演示币 · 虚拟游戏币，不可充值或兑换</div>
@@ -60,7 +60,7 @@
       <button class="t-btn" id="enterBtn" type="button"><span>进入大厅</span></button>
       <button class="t-link" id="switchUser" type="button">切换账号</button>
     </div>
-    <a class="login-credit" href="https://commons.wikimedia.org/wiki/File:Naplemente_Szt%C3%BApa.JPG" target="_blank" rel="noopener noreferrer">Pha That Luang · Belda10 · CC BY-SA 4.0</a>
+    <a class="login-credit" href="https://commons.wikimedia.org/wiki/File:PhaThatLuang_Afterdark.jpg" target="_blank" rel="noopener noreferrer">Pha That Luang · שמעון שוואעי · CC BY-SA 3.0</a>
   </div>
 </section>
 

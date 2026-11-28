@@ -26,13 +26,10 @@ svg{display:block}
 .lotus .ln{display:none}
 .t-panel{position:relative;width:100%;padding:0;border-radius:0;background:none;border:0;box-shadow:none}
 .t-panel .cn{display:none}
-.t-tabs{display:grid;grid-template-columns:1fr 1px 1fr;align-items:center;margin-bottom:14px;width:100%;
-  background:rgba(12,8,10,.32);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
-  border:1px solid rgba(232,200,120,.45);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.18)}
-.t-tabs span{height:16px;background:rgba(232,200,120,.4)}
-.t-tabs button{padding:10px 0;font-size:17px;letter-spacing:.2em;color:#e9d4a2;position:relative}
-.t-tabs button.on{color:#fff3c8;font-weight:700}
-.t-tabs button.on::after{content:"";position:absolute;left:25%;right:25%;bottom:4px;height:1.5px;background:linear-gradient(90deg,transparent,#e2b664,transparent)}
+.t-switch{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin:0 0 10px;padding:2px 0}
+.t-switch button{padding:4px 2px;font-size:13px;letter-spacing:.14em;color:rgba(255,246,224,.58);background:none;border:0}
+.t-switch button.on{color:#fff3c8;font-weight:700}
+.t-switch span{font-size:13px;color:rgba(232,200,120,.5);line-height:1}
 .t-field{position:relative;z-index:0;display:flex;align-items:stretch;gap:10px;height:50px;margin-bottom:12px;padding:0 12px;border-radius:11px;
   background:transparent;border:1px solid rgba(232,200,120,.55);box-shadow:0 8px 20px rgba(0,0,0,.16);transition:border-color .2s,box-shadow .2s}
 .t-field::before{content:"";position:absolute;inset:0;border-radius:inherit;background:rgba(12,8,10,.34);
